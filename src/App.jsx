@@ -1178,7 +1178,7 @@ export default function App() {
     }, current.activeCard ? 900 : 1000);
 
     return () => clearTimeout(timer);
-  }, [mode, gameOverMsg, unoTurnColor, activeCard, movesRemaining, fen, deck, boardOrientation, handleRevive, handleWildCard, forceKeepTurn, endTurn, safelyPassTurn, syncState, showToast, myColor]);
+  }, [mode, gameOverMsg, unoTurnColor, activeCard, movesRemaining, fen, deck, boardOrientation, handleWildCard, forceKeepTurn, endTurn, safelyPassTurn, syncState, showToast, myColor]);
 
   const resetGame = () => {
     const newGame = new Chess();
