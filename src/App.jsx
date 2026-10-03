@@ -1165,7 +1165,16 @@ export default function App() {
       const nextCaptured = cloneCaptured(current.capturedTargets);
       nextCaptured[targetPiece.color][targetPiece.type] = true;
 
-      if (targetPiece.type === 'q') {
+      // 🔥 [수정됨] 킹이 잡혔을 경우 강제 이동 처리
+      if (targetPiece.type === 'k') {
+        currentGame.remove(targetSquare);
+        const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+        if (!move) {
+          currentGame.put({ type: piece.type, color: piece.color }, targetSquare);
+          currentGame.remove(sourceSquare);
+        }
+        nextGame = currentGame;
+      } else if (targetPiece.type === 'q') {
         const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         if (!move) return false;
         nextGame = currentGame;
@@ -1383,12 +1392,24 @@ export default function App() {
 
           if (target && target.color !== aiColor && (target.type === 'k' || target.type === 'q')) {
             nextCaptured[target.color][target.type] = true;
-            if (nextCaptured.w.k && nextCaptured.w.q) { // AI is typically Black capturing White
+            if (nextCaptured[target.color].k && nextCaptured[target.color].q) { 
                won = true; 
             }
           }
 
-          currentGame.move(move);
+          // 🔥 [수정됨] AI가 상대방의 킹을 잡는 경우
+          if (target && target.type === 'k') {
+            currentGame.remove(move.to);
+            const res = currentGame.move(move);
+            if (!res) {
+               const mover = currentGame.get(move.from);
+               currentGame.put(mover, move.to);
+               currentGame.remove(move.from);
+            }
+          } else {
+            currentGame.move(move);
+          }
+
           let nextFen = currentGame.fen();
           let nextGame = currentGame;
           const remaining = latest.movesRemaining - 1;
