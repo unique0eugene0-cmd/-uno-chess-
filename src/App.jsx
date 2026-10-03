@@ -45,6 +45,7 @@ const generateDeck = () => {
   addCards('skip', null, 8, 'Skip', 'bg-purple-600');
   addCards('reverse', null, 8, 'Reverse', 'bg-pink-600');
   addCards('draw', 2, 8, 'Draw 2+', 'bg-cyan-600');
+
   addCards(
     'wild',
     null,
@@ -58,10 +59,10 @@ const generateDeck = () => {
 
 const Toast = ({ message, type = 'info', onClose }) => {
   useEffect(() => {
-    if (message) {
-      const timer = setTimeout(onClose, 4000);
-      return () => clearTimeout(timer);
-    }
+    if (!message) return;
+
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
   }, [message, onClose]);
 
   if (!message) return null;
@@ -70,7 +71,11 @@ const Toast = ({ message, type = 'info', onClose }) => {
     <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-neutral-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-bounce border border-neutral-700">
       <AlertTriangle
         size={18}
-        className={type === 'error' ? 'text-red-500' : 'text-yellow-400'}
+        className={
+          type === 'error'
+            ? 'text-red-500'
+            : 'text-yellow-400'
+        }
       />
       <span className="font-semibold text-lg">{message}</span>
     </div>
@@ -82,7 +87,8 @@ const TutorialModal = ({ onClose }) => (
     <div className="bg-neutral-800 text-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-neutral-600">
       <div className="flex justify-between items-center p-6 border-b border-neutral-700 bg-neutral-900/50 rounded-t-3xl shadow-sm">
         <h2 className="text-3xl font-black flex items-center gap-3 text-yellow-400">
-          <BookOpen size={32} /> 우노 체스 규칙 안내
+          <BookOpen size={32} />
+          우노 체스 규칙 안내
         </h2>
 
         <button
@@ -123,8 +129,12 @@ const TutorialModal = ({ onClose }) => (
                 <strong className="text-white block mb-1 text-lg">
                   숫자 카드 (1, 2, 3, 100)
                 </strong>
+
                 나온 숫자만큼 내 체스말을{' '}
-                <span className="text-green-400 font-bold">연속으로</span> 움직일 수 있습니다.
+                <span className="text-green-400 font-bold">
+                  연속으로
+                </span>{' '}
+                움직일 수 있습니다.
               </div>
             </div>
 
@@ -137,7 +147,9 @@ const TutorialModal = ({ onClose }) => (
                 <strong className="text-white block mb-1 text-lg">
                   스킵 (Skip)
                 </strong>
-                현재 턴에 아무런 행동도 하지 못하고, 즉시 턴이 상대방에게 넘어갑니다.
+
+                현재 턴에 아무런 행동도 하지 못하고,
+                즉시 턴이 상대방에게 넘어갑니다.
               </div>
             </div>
 
@@ -150,6 +162,7 @@ const TutorialModal = ({ onClose }) => (
                 <strong className="text-white block mb-1 text-lg">
                   리버스 (Reverse)
                 </strong>
+
                 체스판 배열이 회전하며 나와 상대방의{' '}
                 <span className="text-pink-400 font-bold">
                   진영(흑/백)과 시점이 180도 완전히 바뀝니다!
@@ -166,6 +179,7 @@ const TutorialModal = ({ onClose }) => (
                 <strong className="text-white block mb-1 text-lg">
                   드로우 (Draw 2+)
                 </strong>
+
                 잡혀서 죽은 기물을 포인트에 맞게 무덤에서 직접 골라,
                 내 진영의 2랭크 빈칸에 부활시킵니다.
               </div>
@@ -180,6 +194,7 @@ const TutorialModal = ({ onClose }) => (
                 <strong className="text-white block mb-1 text-lg">
                   와일드 (Wild)
                 </strong>
+
                 체크메이트 위기이거나 킹을 잡을 수 있는 상황에 발동하여{' '}
                 <span className="text-yellow-400 font-bold">
                   시간을 3턴 전으로 되돌립니다.
@@ -195,7 +210,10 @@ const TutorialModal = ({ onClose }) => (
           </h3>
 
           <p className="bg-red-900/30 text-red-100 p-4 rounded-xl border border-red-500/50 leading-relaxed font-semibold text-lg">
-            상대방의 <strong className="text-red-400">킹과 퀸을 모두 잡으면</strong>{' '}
+            상대방의{' '}
+            <strong className="text-red-400">
+              킹과 퀸을 모두 잡으면
+            </strong>{' '}
             승리합니다. 체크메이트 자체는 게임 종료 조건이 아닙니다!
           </p>
         </section>
@@ -217,16 +235,20 @@ export default function App() {
   const [mode, setMode] = useState('menu');
   const [game, setGame] = useState(() => new Chess());
   const [fen, setFen] = useState(() => new Chess().fen());
-  const [fenHistory, setFenHistory] = useState(() => [new Chess().fen()]);
+  const [fenHistory, setFenHistory] = useState(() => [
+    new Chess().fen()
+  ]);
 
   const [deck, setDeck] = useState(generateDeck);
   const [activeCard, setActiveCard] = useState(null);
   const [movesRemaining, setMovesRemaining] = useState(0);
   const [revivePoints, setRevivePoints] = useState(0);
-  const [selectedRevivePiece, setSelectedRevivePiece] = useState(null);
+  const [selectedRevivePiece, setSelectedRevivePiece] =
+    useState(null);
 
   const [myColor, setMyColor] = useState('w');
-  const [boardOrientation, setBoardOrientation] = useState('white');
+  const [boardOrientation, setBoardOrientation] =
+    useState('white');
   const [unoTurnColor, setUnoTurnColor] = useState('w');
 
   const [peer, setPeer] = useState(null);
@@ -235,9 +257,14 @@ export default function App() {
   const [conn, setConn] = useState(null);
 
   const [isHost, setIsHost] = useState(false);
-  const [opponentConnected, setOpponentConnected] = useState(false);
+  const [opponentConnected, setOpponentConnected] =
+    useState(false);
 
-  const [toast, setToast] = useState({ msg: '', type: 'info' });
+  const [toast, setToast] = useState({
+    msg: '',
+    type: 'info'
+  });
+
   const [gameOverMsg, setGameOverMsg] = useState('');
 
   const [capturedTargets, setCapturedTargets] = useState({
@@ -297,11 +324,228 @@ export default function App() {
   ]);
 
   const showToast = useCallback((msg, type = 'info') => {
-    setToast({ msg, type });
+    setToast({
+      msg,
+      type
+    });
   }, []);
 
+  const setupConnection = useCallback(
+    connection => {
+      connection.on('open', () => {
+        console.log('[P2P] 데이터 채널 오픈 성공!');
+        setOpponentConnected(true);
+        showToast(
+          '상대방이 대기실에 입장했습니다!'
+        );
+      });
+
+      connection.on('data', data => {
+        if (!data || typeof data !== 'object') {
+          return;
+        }
+
+        if (data.type === 'START_GAME') {
+          const newGame = new Chess();
+
+          if (data.fen) {
+            newGame.load(data.fen);
+          }
+
+          const initialFen =
+            data.fen || newGame.fen();
+
+          setGame(newGame);
+          setFen(initialFen);
+          setFenHistory([initialFen]);
+
+          if (data.deck) {
+            setDeck(data.deck);
+          }
+
+          if (data.unoTurnColor) {
+            setUnoTurnColor(
+              data.unoTurnColor
+            );
+          }
+
+          if (data.boardOrientation) {
+            setBoardOrientation(
+              data.boardOrientation
+            );
+          }
+
+          setGameOverMsg('');
+
+          const initialCaptured =
+            data.capturedTargets || {
+              w: { k: false, q: false },
+              b: { k: false, q: false }
+            };
+
+          setCapturedTargets(
+            initialCaptured
+          );
+
+          setCaptureHistory([
+            initialCaptured
+          ]);
+
+          setActiveCard(null);
+          setMovesRemaining(0);
+          setRevivePoints(0);
+          setSelectedRevivePiece(null);
+
+          setMode('p2p');
+
+          showToast(
+            '게임이 시작되었습니다!'
+          );
+
+          return;
+        }
+
+        if (data.type === 'REVERSE') {
+          setBoardOrientation(prev =>
+            prev === 'white'
+              ? 'black'
+              : 'white'
+          );
+
+          setMyColor(prev =>
+            prev === 'w'
+              ? 'b'
+              : 'w'
+          );
+
+          if (data.unoTurnColor) {
+            setUnoTurnColor(
+              data.unoTurnColor
+            );
+          }
+
+          setActiveCard(
+            data.activeCard || null
+          );
+
+          setMovesRemaining(0);
+
+          return;
+        }
+
+        if (data.type === 'SYNC') {
+          try {
+            if (data.fen) {
+              const newGame =
+                new Chess();
+
+              newGame.load(
+                data.fen
+              );
+
+              setGame(newGame);
+              setFen(data.fen);
+            }
+
+            if (
+              data.activeCard !==
+              undefined
+            ) {
+              setActiveCard(
+                data.activeCard
+              );
+            }
+
+            if (
+              data.movesRemaining !==
+              undefined
+            ) {
+              setMovesRemaining(
+                data.movesRemaining
+              );
+            }
+
+            if (
+              data.revivePoints !==
+              undefined
+            ) {
+              setRevivePoints(
+                data.revivePoints
+              );
+            }
+
+            if (
+              data.unoTurnColor !==
+              undefined
+            ) {
+              setUnoTurnColor(
+                data.unoTurnColor
+              );
+            }
+
+            if (
+              data.deck !==
+              undefined
+            ) {
+              setDeck(data.deck);
+            }
+
+            if (
+              data.gameOverMsg !==
+              undefined
+            ) {
+              setGameOverMsg(
+                data.gameOverMsg
+              );
+            }
+
+            if (
+              data.capturedTargets !==
+              undefined
+            ) {
+              setCapturedTargets(
+                data.capturedTargets
+              );
+            }
+
+            if (
+              data.boardOrientation !==
+              undefined
+            ) {
+              setBoardOrientation(
+                data.boardOrientation
+              );
+            }
+
+            if (data.toast) {
+              showToast(data.toast);
+            }
+          } catch (e) {
+            console.error(
+              '[P2P] SYNC 오류:',
+              e
+            );
+          }
+        }
+      });
+
+      connection.on('close', () => {
+        setOpponentConnected(false);
+
+        showToast(
+          '상대방과의 연결이 끊어졌습니다.',
+          'error'
+        );
+      });
+    },
+    [showToast]
+  );
+
   const initPeer = () => {
-    if (peerRef.current && !peerRef.current.destroyed) {
+    if (
+      peerRef.current &&
+      !peerRef.current.destroyed
+    ) {
       setMode('p2p_lobby');
       return;
     }
@@ -319,16 +563,31 @@ export default function App() {
         debug: 3,
         config: {
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            {
+              urls:
+                'stun:stun.l.google.com:19302'
+            },
+            {
+              urls:
+                'stun:stun1.l.google.com:19302'
+            }
           ]
         }
       });
     } catch (e) {
-      console.error('Peer 생성 실패:', e);
+      console.error(
+        'Peer 생성 실패:',
+        e
+      );
+
       isConnectingRef.current = false;
       setIsConnecting(false);
-      showToast('P2P 객체 생성에 실패했습니다.', 'error');
+
+      showToast(
+        'P2P 객체 생성에 실패했습니다.',
+        'error'
+      );
+
       return;
     }
 
@@ -358,6 +617,7 @@ export default function App() {
       clearTimeout(timeoutId);
 
       isConnectingRef.current = false;
+
       setPeerId(id);
       setIsConnecting(false);
       setIsHost(true);
@@ -365,41 +625,72 @@ export default function App() {
       setBoardOrientation('black');
       setMode('p2p_lobby');
 
-      console.log('[P2P] 방 생성 완료:', id);
-    });
-
-    newPeer.on('connection', connection => {
-      console.log('[P2P] 상대방 접속 요청 들어옴:', connection.peer);
-
-      if (connRef.current && connRef.current.open) {
-        connection.close();
-        return;
-      }
-
-      connRef.current = connection;
-      setConn(connection);
-      setupConnection(connection);
-    });
-
-    newPeer.on('error', err => {
-      console.error('[P2P] PeerJS Error:', err);
-
-      clearTimeout(timeoutId);
-      isConnectingRef.current = false;
-      setIsConnecting(false);
-
-      showToast(
-        `P2P 오류: ${err?.type || err?.message || 'unknown'}`,
-        'error'
+      console.log(
+        '[P2P] 방 생성 완료:',
+        id
       );
     });
+
+    newPeer.on(
+      'connection',
+      connection => {
+        console.log(
+          '[P2P] 상대방 접속 요청 들어옴:',
+          connection.peer
+        );
+
+        if (
+          connRef.current &&
+          connRef.current.open
+        ) {
+          connection.close();
+          return;
+        }
+
+        connRef.current =
+          connection;
+
+        setConn(connection);
+        setupConnection(connection);
+      }
+    );
+
+    newPeer.on(
+      'error',
+      err => {
+        console.error(
+          '[P2P] PeerJS Error:',
+          err
+        );
+
+        clearTimeout(timeoutId);
+
+        isConnectingRef.current = false;
+        setIsConnecting(false);
+
+        showToast(
+          `P2P 오류: ${
+            err?.type ||
+            err?.message ||
+            'unknown'
+          }`,
+          'error'
+        );
+      }
+    );
   };
 
   const connectToPeer = () => {
-    const activePeer = peerRef.current || peer;
-    const targetId = remotePeerId.trim();
+    const activePeer =
+      peerRef.current || peer;
 
-    if (!activePeer || activePeer.destroyed) {
+    const targetId =
+      remotePeerId.trim();
+
+    if (
+      !activePeer ||
+      activePeer.destroyed
+    ) {
       showToast(
         '먼저 온라인 대전을 눌러 방을 생성해 주세요.',
         'error'
@@ -408,26 +699,41 @@ export default function App() {
     }
 
     if (!targetId) {
-      showToast('입장할 방 코드를 입력해 주세요.', 'error');
+      showToast(
+        '입장할 방 코드를 입력해 주세요.',
+        'error'
+      );
       return;
     }
 
     if (targetId === peerId) {
-      showToast('내 방 코드에는 입장할 수 없습니다.', 'error');
+      showToast(
+        '내 방 코드에는 입장할 수 없습니다.',
+        'error'
+      );
       return;
     }
 
     if (connRef.current?.open) {
-      showToast('이미 연결되어 있습니다.', 'info');
+      showToast(
+        '이미 연결되어 있습니다.',
+        'info'
+      );
       return;
     }
 
-    const connection = activePeer.connect(targetId, {
-      reliable: true,
-      serialization: 'json'
-    });
+    const connection =
+      activePeer.connect(
+        targetId,
+        {
+          reliable: true,
+          serialization: 'json'
+        }
+      );
 
-    connRef.current = connection;
+    connRef.current =
+      connection;
+
     setConn(connection);
     setIsHost(false);
     setMyColor('w');
@@ -435,135 +741,20 @@ export default function App() {
 
     setupConnection(connection);
 
-    showToast('방에 접속하는 중...');
-  };
-
-  const setupConnection = connection => {
-    connection.on('open', () => {
-      console.log('[P2P] 데이터 채널 오픈 성공!');
-      setOpponentConnected(true);
-      showToast('상대방이 대기실에 입장했습니다!');
-    });
-
-    connection.on('data', data => {
-      if (!data || typeof data !== 'object') return;
-
-      if (data.type === 'START_GAME') {
-        const newGame = new Chess();
-
-        if (data.fen) {
-          newGame.load(data.fen);
-        }
-
-        const initialFen = data.fen || newGame.fen();
-
-        setGame(newGame);
-        setFen(initialFen);
-        setFenHistory([initialFen]);
-
-        if (data.deck) setDeck(data.deck);
-        if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
-        if (data.boardOrientation) {
-          setBoardOrientation(data.boardOrientation);
-        }
-
-        setGameOverMsg('');
-
-        const initialCaptured =
-          data.capturedTargets || {
-            w: { k: false, q: false },
-            b: { k: false, q: false }
-          };
-
-        setCapturedTargets(initialCaptured);
-        setCaptureHistory([initialCaptured]);
-
-        setActiveCard(null);
-        setMovesRemaining(0);
-        setRevivePoints(0);
-        setSelectedRevivePiece(null);
-
-        setMode('p2p');
-
-        showToast('게임이 시작되었습니다!');
-        return;
-      }
-
-      if (data.type === 'REVERSE') {
-        setBoardOrientation(prev =>
-          prev === 'white' ? 'black' : 'white'
-        );
-
-        setMyColor(prev => (prev === 'w' ? 'b' : 'w'));
-
-        if (data.unoTurnColor) {
-          setUnoTurnColor(data.unoTurnColor);
-        }
-
-        setActiveCard(data.activeCard || null);
-        setMovesRemaining(0);
-
-        return;
-      }
-
-      if (data.type === 'SYNC') {
-        try {
-          if (data.fen) {
-            const newGame = new Chess();
-            newGame.load(data.fen);
-
-            setGame(newGame);
-            setFen(data.fen);
-          }
-
-          if (data.activeCard !== undefined) {
-            setActiveCard(data.activeCard);
-          }
-
-          if (data.movesRemaining !== undefined) {
-            setMovesRemaining(data.movesRemaining);
-          }
-
-          if (data.revivePoints !== undefined) {
-            setRevivePoints(data.revivePoints);
-          }
-
-          if (data.unoTurnColor !== undefined) {
-            setUnoTurnColor(data.unoTurnColor);
-          }
-
-          if (data.deck !== undefined) {
-            setDeck(data.deck);
-          }
-
-          if (data.gameOverMsg !== undefined) {
-            setGameOverMsg(data.gameOverMsg);
-          }
-
-          if (data.capturedTargets !== undefined) {
-            setCapturedTargets(data.capturedTargets);
-          }
-
-          if (data.toast) {
-            showToast(data.toast);
-          }
-        } catch (e) {
-          console.error('[P2P] SYNC 오류:', e);
-        }
-      }
-    });
-
-    connection.on('close', () => {
-      setOpponentConnected(false);
-      showToast('상대방과의 연결이 끊어졌습니다.', 'error');
-    });
+    showToast(
+      '방에 접속하는 중...'
+    );
   };
 
   const sendMessage = useCallback(
     message => {
-      const connection = connRef.current || conn;
+      const connection =
+        connRef.current || conn;
 
-      if (!connection || !connection.open) {
+      if (
+        !connection ||
+        !connection.open
+      ) {
         return false;
       }
 
@@ -579,62 +770,80 @@ export default function App() {
 
   const syncState = useCallback(
     (overrides = {}) => {
-      const connection = connRef.current || conn;
+      const connection =
+        connRef.current || conn;
 
-      if (!connection || !connection.open) return;
+      if (
+        !connection ||
+        !connection.open
+      ) {
+        return;
+      }
 
-      const current = stateRef.current;
+      const current =
+        stateRef.current;
 
       try {
         connection.send({
           type: 'SYNC',
+
           fen:
-            overrides.fen !== undefined
+            overrides.fen !==
+            undefined
               ? overrides.fen
               : current.fen,
 
           activeCard:
-            overrides.activeCard !== undefined
+            overrides.activeCard !==
+            undefined
               ? overrides.activeCard
               : current.activeCard,
 
           movesRemaining:
-            overrides.movesRemaining !== undefined
+            overrides.movesRemaining !==
+            undefined
               ? overrides.movesRemaining
               : current.movesRemaining,
 
           revivePoints:
-            overrides.revivePoints !== undefined
+            overrides.revivePoints !==
+            undefined
               ? overrides.revivePoints
               : current.revivePoints,
 
           unoTurnColor:
-            overrides.unoTurnColor !== undefined
+            overrides.unoTurnColor !==
+            undefined
               ? overrides.unoTurnColor
               : current.unoTurnColor,
 
           deck:
-            overrides.deck !== undefined
+            overrides.deck !==
+            undefined
               ? overrides.deck
               : current.deck,
 
           gameOverMsg:
-            overrides.gameOverMsg !== undefined
+            overrides.gameOverMsg !==
+            undefined
               ? overrides.gameOverMsg
               : current.gameOverMsg,
 
           capturedTargets:
-            overrides.capturedTargets !== undefined
+            overrides.capturedTargets !==
+            undefined
               ? overrides.capturedTargets
               : current.capturedTargets,
 
           boardOrientation:
-            overrides.boardOrientation !== undefined
+            overrides.boardOrientation !==
+            undefined
               ? overrides.boardOrientation
               : current.boardOrientation,
 
           toast:
-            overrides.toast !== undefined
+            overrides.toast !==
+            undefined
               ? overrides.toast
               : ''
         });
@@ -644,9 +853,14 @@ export default function App() {
   );
 
   const handleStartGame = () => {
-    const freshGame = new Chess();
-    const initialFen = freshGame.fen();
-    const initialDeck = generateDeck();
+    const freshGame =
+      new Chess();
+
+    const initialFen =
+      freshGame.fen();
+
+    const initialDeck =
+      generateDeck();
 
     const initialCaptured = {
       w: { k: false, q: false },
@@ -655,7 +869,9 @@ export default function App() {
 
     setGame(freshGame);
     setFen(initialFen);
-    setFenHistory([initialFen]);
+    setFenHistory([
+      initialFen
+    ]);
     setDeck(initialDeck);
     setActiveCard(null);
     setMovesRemaining(0);
@@ -663,8 +879,12 @@ export default function App() {
     setSelectedRevivePiece(null);
     setUnoTurnColor('w');
     setGameOverMsg('');
-    setCapturedTargets(initialCaptured);
-    setCaptureHistory([initialCaptured]);
+    setCapturedTargets(
+      initialCaptured
+    );
+    setCaptureHistory([
+      initialCaptured
+    ]);
     setBoardOrientation('black');
     setMode('p2p');
 
@@ -674,110 +894,132 @@ export default function App() {
       deck: initialDeck,
       unoTurnColor: 'w',
       boardOrientation: 'white',
-      capturedTargets: initialCaptured
+      capturedTargets:
+        initialCaptured
     });
   };
 
-  const safelyPassTurn = useCallback(
-    currentFen => {
-      try {
-        const parts = currentFen.split(' ');
-        const nextColor = parts[1] === 'w' ? 'b' : 'w';
+  const safelyPassTurn =
+    useCallback(
+      currentFen => {
+        try {
+          const parts =
+            currentFen.split(' ');
 
-        parts[1] = nextColor;
-        parts[3] = '-';
-
-        const newFen = parts.join(' ');
-        const newGame = new Chess();
-
-        newGame.load(newFen);
-
-        setGame(newGame);
-        setFen(newFen);
-        setUnoTurnColor(nextColor);
-        setActiveCard(null);
-        setMovesRemaining(0);
-        setRevivePoints(0);
-        setSelectedRevivePiece(null);
-
-        setFenHistory(prev => {
-          if (prev[prev.length - 1] === newFen) {
-            return prev;
-          }
-
-          return [...prev, newFen];
-        });
-
-        syncState({
-          fen: newFen,
-          unoTurnColor: nextColor,
-          movesRemaining: 0,
-          activeCard: null,
-          revivePoints: 0
-        });
-      } catch (e) {
-        console.error('[턴 넘기기 오류]', e);
-
-        const msg =
-          '잘못된 위치! 킹이 위협받습니다. 게임 오버!';
-
-        setGameOverMsg(msg);
-
-        syncState({
-          gameOverMsg: msg
-        });
-      }
-    },
-    [syncState]
-  );
-
-  /*
-   * 턴 종료의 핵심 함수.
-   *
-   * 기존 코드에서는:
-   * endTurn()
-   *   -> currentGame.turn()
-   *   -> safelyPassTurn()
-   *   -> state 업데이트
-   *
-   * 과정에서 React의 비동기 state와 FEN의 active color가
-   * 서로 다른 시점을 참조할 수 있었다.
-   *
-   * 이제 currentFen 하나를 기준으로 다음 턴의 FEN을 먼저 확정한 뒤
-   * 관련 상태를 한 번에 변경한다.
-   */
-  const endTurn = useCallback(
-    (currentFen, extraSync = {}) => {
-      try {
-        const currentGame = new Chess(currentFen);
-
-        let nextFen = currentFen;
-        let nextColor = currentGame.turn();
-
-        /*
-         * chess.js의 active color가 아직 UNO 턴 색과 같다면
-         * 실제 체스 이동을 통해 턴이 넘어가지 않은 상황이다.
-         *
-         * 예:
-         * 킹 캡처 / 부활 / skip 등
-         */
-        if (currentGame.turn() === unoTurnColor) {
-          const parts = currentFen.split(' ');
-
-          nextColor = parts[1] === 'w' ? 'b' : 'w';
+          const nextColor =
+            parts[1] === 'w'
+              ? 'b'
+              : 'w';
 
           parts[1] = nextColor;
           parts[3] = '-';
 
-          nextFen = parts.join(' ');
+          const newFen =
+            parts.join(' ');
+
+          const newGame =
+            new Chess();
+
+          newGame.load(newFen);
+
+          setGame(newGame);
+          setFen(newFen);
+          setUnoTurnColor(
+            nextColor
+          );
+          setActiveCard(null);
+          setMovesRemaining(0);
+          setRevivePoints(0);
+          setSelectedRevivePiece(null);
+
+          setFenHistory(prev => {
+            if (
+              prev[
+                prev.length - 1
+              ] === newFen
+            ) {
+              return prev;
+            }
+
+            return [
+              ...prev,
+              newFen
+            ];
+          });
+
+          syncState({
+            fen: newFen,
+            unoTurnColor:
+              nextColor,
+            movesRemaining: 0,
+            activeCard: null,
+            revivePoints: 0
+          });
+        } catch (e) {
+          console.error(
+            '[턴 넘기기 오류]',
+            e
+          );
+
+          const msg =
+            '잘못된 위치! 킹이 위협받습니다. 게임 오버!';
+
+          setGameOverMsg(msg);
+
+          syncState({
+            gameOverMsg: msg
+          });
+        }
+      },
+      [syncState]
+    );
+
+  const endTurn = useCallback(
+    (
+      currentFen,
+      extraSync = {}
+    ) => {
+      try {
+        const currentGame =
+          new Chess(currentFen);
+
+        let nextFen =
+          currentFen;
+
+        let nextColor =
+          currentGame.turn();
+
+        if (
+          currentGame.turn() ===
+          unoTurnColor
+        ) {
+          const parts =
+            currentFen.split(' ');
+
+          nextColor =
+            parts[1] === 'w'
+              ? 'b'
+              : 'w';
+
+          parts[1] =
+            nextColor;
+
+          parts[3] = '-';
+
+          nextFen =
+            parts.join(' ');
         }
 
-        const nextGame = new Chess();
+        const nextGame =
+          new Chess();
+
         nextGame.load(nextFen);
 
         setGame(nextGame);
         setFen(nextFen);
-        setUnoTurnColor(nextColor);
+        setUnoTurnColor(
+          nextColor
+        );
 
         setActiveCard(null);
         setMovesRemaining(0);
@@ -785,597 +1027,528 @@ export default function App() {
         setSelectedRevivePiece(null);
 
         setFenHistory(prev => {
-          if (prev[prev.length - 1] === nextFen) {
+          if (
+            prev[
+              prev.length - 1
+            ] === nextFen
+          ) {
             return prev;
           }
 
-          return [...prev, nextFen];
+          return [
+            ...prev,
+            nextFen
+          ];
         });
 
         syncState({
           fen: nextFen,
-          unoTurnColor: nextColor,
+          unoTurnColor:
+            nextColor,
           activeCard: null,
           movesRemaining: 0,
           revivePoints: 0,
           ...extraSync
         });
       } catch (e) {
-        console.error('[턴 종료 오류]', e);
-
-        safelyPassTurn(currentFen);
-      }
-    },
-    [unoTurnColor, safelyPassTurn, syncState]
-  );
-
-  /*
-   * 숫자 카드로 여러 번 움직일 때 사용.
-   * 실제 chess.js 턴은 이미 상대방 색으로 바뀌기 때문에
-   * UNO 턴 색을 유지하도록 FEN active color를 다시 맞춘다.
-   */
-  const forceKeepTurn = useCallback(
-    currentFen => {
-      try {
-        const parts = currentFen.split(' ');
-
-        parts[1] = unoTurnColor;
-        parts[3] = '-';
-
-        const newFen = parts.join(' ');
-        const newGame = new Chess();
-
-        newGame.load(newFen);
-
-        setGame(newGame);
-        setFen(newFen);
-
-        syncState({
-          fen: newFen,
-          unoTurnColor
-        });
-      } catch (e) {
-        console.error('[연속 이동 처리 오류]', e);
-
-        showToast(
-          '현재 위치에서 연속 이동을 유지할 수 없습니다. 턴을 종료합니다.',
-          'error'
+        console.error(
+          '[턴 종료 오류]',
+          e
         );
 
-        endTurn(currentFen, {
-          revivePoints: 0
-        });
-      }
-    },
-    [unoTurnColor, endTurn, showToast, syncState]
-  );
-
-  const getDeadPieces = useCallback(
-    (currentFen = fen) => {
-      const points = {
-        p: 1,
-        n: 3,
-        b: 3,
-        r: 3,
-        q: 4,
-        k: 4
-      };
-
-      const initialCount = {
-        p: 8,
-        n: 2,
-        b: 2,
-        r: 2,
-        q: 1,
-        k: 1
-      };
-
-      const currentCount = {
-        p: 0,
-        n: 0,
-        b: 0,
-        r: 0,
-        q: 0,
-        k: 0
-      };
-
-      const currentGame = new Chess(currentFen);
-
-      currentGame.board().forEach(row => {
-        row.forEach(piece => {
-          if (
-            piece &&
-            piece.color === unoTurnColor &&
-            currentCount[piece.type] !== undefined
-          ) {
-            currentCount[piece.type]++;
-          }
-        });
-      });
-
-      const dead = [];
-      const typeOrder = ['q', 'r', 'b', 'n', 'p', 'k'];
-
-      typeOrder.forEach(type => {
-        let missing =
-          initialCount[type] - currentCount[type];
-
-        if (
-          type === 'k' &&
-          capturedTargets[unoTurnColor]?.k
-        ) {
-          missing = 1;
-        }
-
-        if (
-          type === 'q' &&
-          capturedTargets[unoTurnColor]?.q
-        ) {
-          missing = Math.max(1, missing);
-        }
-
-        for (let i = 0; i < Math.max(0, missing); i++) {
-          dead.push({
-            type,
-            points: points[type]
-          });
-        }
-      });
-
-      return dead;
-    },
-    [fen, unoTurnColor, capturedTargets]
-  );
-
-  const getReviveSquares = useCallback(
-    (currentFen = fen) => {
-      const currentGame = new Chess(currentFen);
-      const squares = [];
-
-      const ranks =
-        unoTurnColor === 'w'
-          ? [1, 2]
-          : [7, 8];
-
-      ranks.forEach(rank => {
-        for (let file = 0; file < 8; file++) {
-          const square =
-            String.fromCharCode(97 + file) + rank;
-
-          const piece = currentGame.get(square);
-
-          const isCapturedKingPlaceholder =
-            piece?.type === 'k' &&
-            piece?.color === unoTurnColor &&
-            capturedTargets[unoTurnColor]?.k;
-
-          if (!piece || isCapturedKingPlaceholder) {
-            squares.push(square);
-          }
-        }
-      });
-
-      return squares;
-    },
-    [fen, unoTurnColor, capturedTargets]
-  );
-
-  /*
-   * +카드 종료.
-   *
-   * fenOverride를 받을 수 있도록 변경해서
-   * 방금 부활시킨 기물의 최신 FEN으로 턴을 종료할 수 있게 했다.
-   */
-  const finishRevive = useCallback(
-    (fenOverride = null) => {
-      if (
-        !activeCard ||
-        activeCard.type !== 'draw'
-      ) {
-        return;
-      }
-
-      const currentFen =
-        fenOverride || stateRef.current.fen;
-
-      setSelectedRevivePiece(null);
-      setRevivePoints(0);
-      setActiveCard(null);
-      setMovesRemaining(0);
-
-      endTurn(currentFen, {
-        revivePoints: 0,
-        activeCard: null,
-        movesRemaining: 0
-      });
-    },
-    [activeCard, endTurn]
-  );
-
-  const startRevive = useCallback(
-    (card, currentFen) => {
-      const deadPieces =
-        getDeadPieces(currentFen);
-
-      if (deadPieces.length === 0) {
-        /*
-         * 부활할 기물이 하나도 없으면 +카드를 사용하고
-         * 그냥 1회 이동 카드처럼 처리한다.
-         */
-        showToast(
-          '무덤에 부활 가능한 기물이 없습니다. 1회 이동합니다.',
-          'info'
+        safelyPassTurn(
+          currentFen
         );
-
-        setMovesRemaining(1);
-
-        syncState({
-          activeCard: card,
-          movesRemaining: 1,
-          revivePoints: 0
-        });
-
-        return;
       }
-
-      /*
-       * 현재 포인트로 실제 부활 가능한 기물이 하나도 없는
-       * 극단적인 경우도 바로 턴 종료한다.
-       */
-      const affordablePieces =
-        deadPieces.filter(
-          piece => piece.points <= card.value
-        );
-
-      if (affordablePieces.length === 0) {
-        showToast(
-          `+${card.value}P로 부활할 수 있는 기물이 없어 턴을 종료합니다.`,
-          'info'
-        );
-
-        setTimeout(() => {
-          finishRevive(currentFen);
-        }, 350);
-
-        return;
-      }
-
-      setRevivePoints(card.value);
-      setSelectedRevivePiece(null);
-
-      syncState({
-        activeCard: card,
-        movesRemaining: 0,
-        revivePoints: card.value
-      });
-
-      showToast(
-        `+${card.value}: 무덤에서 기물을 선택하고 내 진영 2랭크에 놓으세요.`,
-        'info'
-      );
     },
     [
-      getDeadPieces,
-      showToast,
-      syncState,
-      finishRevive
-    ]
-  );
-
-  const handleRevivePieceSelect = useCallback(
-    type => {
-      if (
-        !activeCard ||
-        activeCard.type !== 'draw' ||
-        revivePoints <= 0
-      ) {
-        return;
-      }
-
-      if (
-        (mode === 'p2p' || mode === 'ai') &&
-        unoTurnColor !== myColor
-      ) {
-        return;
-      }
-
-      const deadPieces =
-        getDeadPieces(stateRef.current.fen);
-
-      const available = deadPieces.find(
-        piece =>
-          piece.type === type &&
-          piece.points <= revivePoints
-      );
-
-      if (!available) {
-        showToast(
-          `현재 ${revivePoints}포인트로 부활할 수 없는 기물입니다.`,
-          'error'
-        );
-        return;
-      }
-
-      setSelectedRevivePiece(type);
-
-      const names = {
-        p: '폰',
-        n: '나이트',
-        b: '비숍',
-        r: '룩',
-        q: '퀸',
-        k: '킹'
-      };
-
-      showToast(
-        `${names[type]} 선택됨. 내 진영 2랭크의 빈칸을 클릭하세요.`,
-        'info'
-      );
-    },
-    [
-      activeCard,
-      revivePoints,
-      getDeadPieces,
-      showToast,
-      mode,
       unoTurnColor,
-      myColor
+      safelyPassTurn,
+      syncState
     ]
   );
 
-  const handleReviveSquareClick = useCallback(
-    square => {
-      if (
-        !activeCard ||
-        activeCard.type !== 'draw' ||
-        !selectedRevivePiece
-      ) {
-        return;
-      }
+  const forceKeepTurn =
+    useCallback(
+      currentFen => {
+        try {
+          const parts =
+            currentFen.split(' ');
 
-      if (
-        (mode === 'p2p' || mode === 'ai') &&
-        unoTurnColor !== myColor
-      ) {
-        return;
-      }
+          parts[1] =
+            unoTurnColor;
 
-      if (revivePoints <= 0) {
-        return;
-      }
+          parts[3] = '-';
 
-      const currentFen =
-        stateRef.current.fen;
+          const newFen =
+            parts.join(' ');
 
-      const currentGame =
-        new Chess(currentFen);
+          const newGame =
+            new Chess();
 
-      const rank = Number(square[1]);
+          newGame.load(newFen);
 
-      const validRank =
-        unoTurnColor === 'w'
-          ? rank === 1 || rank === 2
-          : rank === 7 || rank === 8;
+          setGame(newGame);
+          setFen(newFen);
 
-      if (!validRank) {
-        showToast(
-          '내 진영의 2랭크 안에서만 부활시킬 수 있습니다.',
-          'error'
-        );
-        return;
-      }
+          syncState({
+            fen: newFen,
+            unoTurnColor
+          });
+        } catch (e) {
+          console.error(
+            '[연속 이동 처리 오류]',
+            e
+          );
 
-      const squarePiece =
-        currentGame.get(square);
+          showToast(
+            '현재 위치에서 연속 이동을 유지할 수 없습니다. 턴을 종료합니다.',
+            'error'
+          );
 
-      const isCapturedKingPlaceholderOnSquare =
-        squarePiece?.type === 'k' &&
-        squarePiece?.color === unoTurnColor &&
-        capturedTargets[unoTurnColor]?.k;
-
-      if (
-        squarePiece &&
-        !isCapturedKingPlaceholderOnSquare
-      ) {
-        showToast(
-          '빈 칸에만 부활시킬 수 있습니다.',
-          'error'
-        );
-        return;
-      }
-
-      const points = {
-        p: 1,
-        n: 3,
-        b: 3,
-        r: 3,
-        q: 4,
-        k: 4
-      };
-
-      const cost =
-        points[selectedRevivePiece];
-
-      if (cost > revivePoints) {
-        showToast(
-          `포인트가 부족합니다. 필요한 포인트: ${cost}`,
-          'error'
-        );
-        return;
-      }
-
-      const deadPieces =
-        getDeadPieces(currentFen);
-
-      const deadIndex =
-        deadPieces.findIndex(
-          piece =>
-            piece.type === selectedRevivePiece &&
-            piece.points <= revivePoints
-        );
-
-      if (deadIndex === -1) {
-        showToast(
-          '해당 기물이 무덤에 없습니다.',
-          'error'
-        );
-
-        setSelectedRevivePiece(null);
-        return;
-      }
-
-      try {
-        /*
-         * 킹 부활:
-         * chess.js에서 킹은 항상 하나가 있어야 하므로
-         * 기존 킹을 먼저 제거한 뒤 새 위치에 넣는다.
-         */
-        if (selectedRevivePiece === 'k') {
-          for (let rankNo = 1; rankNo <= 8; rankNo++) {
-            for (let fileNo = 0; fileNo < 8; fileNo++) {
-              const sq =
-                String.fromCharCode(97 + fileNo) +
-                rankNo;
-
-              const piece =
-                currentGame.get(sq);
-
-              if (
-                piece?.type === 'k' &&
-                piece.color === unoTurnColor
-              ) {
-                currentGame.remove(sq);
-              }
+          endTurn(
+            currentFen,
+            {
+              revivePoints: 0
             }
-          }
+          );
         }
+      },
+      [
+        unoTurnColor,
+        endTurn,
+        showToast,
+        syncState
+      ]
+    );
 
-        currentGame.put(
-          {
-            type: selectedRevivePiece,
-            color: unoTurnColor
-          },
-          square
-        );
-
-        const newFen =
-          currentGame.fen();
-
-        const nextPoints =
-          revivePoints - cost;
-
-        const nextCaptured = {
-          w: { ...capturedTargets.w },
-          b: { ...capturedTargets.b }
+  const getDeadPieces =
+    useCallback(
+      (currentFen = fen) => {
+        const points = {
+          p: 1,
+          n: 3,
+          b: 3,
+          r: 3,
+          q: 4,
+          k: 4
         };
 
-        nextCaptured[unoTurnColor][
-          selectedRevivePiece
-        ] = false;
+        const initialCount = {
+          p: 8,
+          n: 2,
+          b: 2,
+          r: 2,
+          q: 1,
+          k: 1
+        };
 
-        setCapturedTargets(nextCaptured);
+        const currentCount = {
+          p: 0,
+          n: 0,
+          b: 0,
+          r: 0,
+          q: 0,
+          k: 0
+        };
 
-        setCaptureHistory(prev => [
-          ...prev,
-          nextCaptured
-        ]);
+        const currentGame =
+          new Chess(currentFen);
 
-        setGame(currentGame);
-        setFen(newFen);
-        setFenHistory(prev => [
-          ...prev,
-          newFen
-        ]);
+        currentGame
+          .board()
+          .forEach(row => {
+            row.forEach(piece => {
+              if (
+                piece &&
+                piece.color ===
+                  unoTurnColor &&
+                currentCount[
+                  piece.type
+                ] !== undefined
+              ) {
+                currentCount[
+                  piece.type
+                ]++;
+              }
+            });
+          });
 
-        setRevivePoints(nextPoints);
-        setSelectedRevivePiece(null);
+        const dead = [];
 
-        syncState({
-          fen: newFen,
-          activeCard,
-          movesRemaining: 0,
-          revivePoints: nextPoints,
-          capturedTargets: nextCaptured
+        const typeOrder = [
+          'q',
+          'r',
+          'b',
+          'n',
+          'p',
+          'k'
+        ];
+
+        typeOrder.forEach(type => {
+          let missing =
+            initialCount[type] -
+            currentCount[type];
+
+          if (
+            type === 'k' &&
+            capturedTargets[
+              unoTurnColor
+            ]?.k
+          ) {
+            missing = 1;
+          }
+
+          if (
+            type === 'q' &&
+            capturedTargets[
+              unoTurnColor
+            ]?.q
+          ) {
+            missing = Math.max(
+              1,
+              missing
+            );
+          }
+
+          for (
+            let i = 0;
+            i <
+            Math.max(
+              0,
+              missing
+            );
+            i++
+          ) {
+            dead.push({
+              type,
+              points:
+                points[type]
+            });
+          }
         });
 
-        /*
-         * 포인트를 전부 사용했다면 바로 턴 종료.
-         */
-        if (nextPoints <= 0) {
+        return dead;
+      },
+      [
+        fen,
+        unoTurnColor,
+        capturedTargets
+      ]
+    );
+
+  const getReviveSquares =
+    useCallback(
+      (currentFen = fen) => {
+        const currentGame =
+          new Chess(currentFen);
+
+        const squares = [];
+
+        const ranks =
+          unoTurnColor === 'w'
+            ? [1, 2]
+            : [7, 8];
+
+        ranks.forEach(rank => {
+          for (
+            let file = 0;
+            file < 8;
+            file++
+          ) {
+            const square =
+              String.fromCharCode(
+                97 + file
+              ) + rank;
+
+            const piece =
+              currentGame.get(
+                square
+              );
+
+            const isCapturedKingPlaceholder =
+              piece?.type === 'k' &&
+              piece?.color ===
+                unoTurnColor &&
+              capturedTargets[
+                unoTurnColor
+              ]?.k;
+
+            if (
+              !piece ||
+              isCapturedKingPlaceholder
+            ) {
+              squares.push(square);
+            }
+          }
+        });
+
+        return squares;
+      },
+      [
+        fen,
+        unoTurnColor,
+        capturedTargets
+      ]
+    );
+
+  const finishRevive =
+    useCallback(
+      (fenOverride = null) => {
+        if (
+          !activeCard ||
+          activeCard.type !==
+            'draw'
+        ) {
+          return;
+        }
+
+        const currentFen =
+          fenOverride ||
+          stateRef.current.fen;
+
+        setSelectedRevivePiece(
+          null
+        );
+
+        setRevivePoints(0);
+        setActiveCard(null);
+        setMovesRemaining(0);
+
+        endTurn(
+          currentFen,
+          {
+            revivePoints: 0,
+            activeCard: null,
+            movesRemaining: 0
+          }
+        );
+      },
+      [activeCard, endTurn]
+    );
+
+  const startRevive =
+    useCallback(
+      (card, currentFen) => {
+        const deadPieces =
+          getDeadPieces(
+            currentFen
+          );
+
+        if (
+          deadPieces.length === 0
+        ) {
           showToast(
-            '부활 포인트를 모두 사용했습니다! 턴이 종료됩니다.',
+            '무덤에 부활 가능한 기물이 없습니다. 1회 이동합니다.',
+            'info'
+          );
+
+          setMovesRemaining(1);
+
+          syncState({
+            activeCard: card,
+            movesRemaining: 1,
+            revivePoints: 0
+          });
+
+          return;
+        }
+
+        const affordablePieces =
+          deadPieces.filter(
+            piece =>
+              piece.points <=
+              card.value
+          );
+
+        if (
+          affordablePieces.length ===
+          0
+        ) {
+          showToast(
+            `+${card.value}P로 부활할 수 있는 기물이 없어 턴을 종료합니다.`,
             'info'
           );
 
           setTimeout(() => {
-            finishRevive(newFen);
+            finishRevive(
+              currentFen
+            );
           }, 350);
 
           return;
         }
 
-        /*
-         * 여기서 핵심.
-         *
-         * 남은 포인트가 있어도
-         * 그 포인트로 부활할 수 있는 기물이 없다면
-         * 사용자가 "부활 종료" 버튼을 다시 누르지 않아도
-         * 자동으로 턴을 종료한다.
-         */
-        const nextDead =
-          getDeadPieces(newFen).filter(
-            piece => piece.points <= nextPoints
-          );
+        setRevivePoints(
+          card.value
+        );
 
-        if (nextDead.length === 0) {
-          showToast(
-            `남은 ${nextPoints}P로 부활할 기물이 없어 턴을 종료합니다.`,
-            'info'
-          );
+        setSelectedRevivePiece(
+          null
+        );
 
-          setTimeout(() => {
-            finishRevive(newFen);
-          }, 500);
+        syncState({
+          activeCard: card,
+          movesRemaining: 0,
+          revivePoints:
+            card.value
+        });
 
+        showToast(
+          `+${card.value}: 무덤에서 기물을 선택하고 내 진영 2랭크에 놓으세요.`,
+          'info'
+        );
+      },
+      [
+        getDeadPieces,
+        showToast,
+        syncState,
+        finishRevive
+      ]
+    );
+
+  const handleRevivePieceSelect =
+    useCallback(
+      type => {
+        if (
+          !activeCard ||
+          activeCard.type !==
+            'draw' ||
+          revivePoints <= 0
+        ) {
           return;
         }
 
+        if (
+          (mode === 'p2p' ||
+            mode === 'ai') &&
+          unoTurnColor !== myColor
+        ) {
+          return;
+        }
+
+        const deadPieces =
+          getDeadPieces(
+            stateRef.current.fen
+          );
+
+        const available =
+          deadPieces.find(
+            piece =>
+              piece.type ===
+                type &&
+              piece.points <=
+                revivePoints
+          );
+
+        if (!available) {
+          showToast(
+            `현재 ${revivePoints}포인트로 부활할 수 없는 기물입니다.`,
+            'error'
+          );
+          return;
+        }
+
+        setSelectedRevivePiece(
+          type
+        );
+
+        const names = {
+          p: '폰',
+          n: '나이트',
+          b: '비숍',
+          r: '룩',
+          q: '퀸',
+          k: '킹'
+        };
+
         showToast(
-          `${cost}포인트 사용! ${nextPoints}포인트 남음.`,
+          `${names[type]} 선택됨. 내 진영 2랭크의 빈칸을 클릭하세요.`,
           'info'
         );
-      } catch (e) {
-        console.error(
-          '[부활] 기물 배치 실패:',
-          e
-        );
+      },
+      [
+        activeCard,
+        revivePoints,
+        getDeadPieces,
+        showToast,
+        mode,
+        unoTurnColor,
+        myColor
+      ]
+    );
 
-        showToast(
-          '이 칸에는 기물을 부활시킬 수 없습니다.',
-          'error'
-        );
-      }
-    },
-    [
-      activeCard,
-      selectedRevivePiece,
-      revivePoints,
-      unoTurnColor,
-      myColor,
-      mode,
-      capturedTargets,
-      getDeadPieces,
-      syncState,
-      showToast,
-      finishRevive
-    ]
-  );
+  const handleReviveSquareClick =
+    useCallback(
+      square => {
+        if (
+          !activeCard ||
+          activeCard.type !==
+            'draw' ||
+          !selectedRevivePiece
+        ) {
+          return;
+        }
 
-  const handleAIRevive = useCallback(
-    (maxPoints, currentFen) => {
-      try {
+        if (
+          (mode === 'p2p' ||
+            mode === 'ai') &&
+          unoTurnColor !== myColor
+        ) {
+          return;
+        }
+
+        if (revivePoints <= 0) {
+          return;
+        }
+
+        const currentFen =
+          stateRef.current.fen;
+
         const currentGame =
           new Chess(currentFen);
+
+        const rank =
+          Number(square[1]);
+
+        const validRank =
+          unoTurnColor === 'w'
+            ? rank === 1 ||
+              rank === 2
+            : rank === 7 ||
+              rank === 8;
+
+        if (!validRank) {
+          showToast(
+            '내 진영의 2랭크 안에서만 부활시킬 수 있습니다.',
+            'error'
+          );
+          return;
+        }
+
+        const squarePiece =
+          currentGame.get(
+            square
+          );
+
+        const isCapturedKingPlaceholderOnSquare =
+          squarePiece?.type === 'k' &&
+          squarePiece?.color ===
+            unoTurnColor &&
+          capturedTargets[
+            unoTurnColor
+          ]?.k;
+
+        if (
+          squarePiece &&
+          !isCapturedKingPlaceholderOnSquare
+        ) {
+          showToast(
+            '빈 칸에만 부활시킬 수 있습니다.',
+            'error'
+          );
+          return;
+        }
 
         const points = {
           p: 1,
@@ -1386,615 +1559,716 @@ export default function App() {
           k: 4
         };
 
-        let remaining = maxPoints;
+        const cost =
+          points[
+            selectedRevivePiece
+          ];
 
-        let deadPieces =
-          getDeadPieces(currentFen);
-
-        const ranks =
-          unoTurnColor === 'w'
-            ? [1, 2]
-            : [7, 8];
-
-        const emptySquares = [];
-
-        ranks.forEach(rank => {
-          for (let file = 0; file < 8; file++) {
-            const square =
-              String.fromCharCode(97 + file) +
-              rank;
-
-            if (!currentGame.get(square)) {
-              emptySquares.push(square);
-            }
-          }
-        });
-
-        const reviveTypes = [
-          'q',
-          'r',
-          'b',
-          'n',
-          'p',
-          'k'
-        ];
-
-        for (const type of reviveTypes) {
-          while (
-            deadPieces.some(
-              piece => piece.type === type
-            ) &&
-            remaining >= points[type] &&
-            emptySquares.length > 0
-          ) {
-            const squareIndex =
-              Math.floor(
-                Math.random() *
-                  emptySquares.length
-              );
-
-            const square =
-              emptySquares.splice(
-                squareIndex,
-                1
-              )[0];
-
-            currentGame.put(
-              {
-                type,
-                color: unoTurnColor
-              },
-              square
-            );
-
-            remaining -= points[type];
-
-            const nextIndex =
-              deadPieces.findIndex(
-                piece => piece.type === type
-              );
-
-            if (nextIndex !== -1) {
-              deadPieces.splice(
-                nextIndex,
-                1
-              );
-            }
-          }
+        if (
+          cost > revivePoints
+        ) {
+          showToast(
+            `포인트가 부족합니다. 필요한 포인트: ${cost}`,
+            'error'
+          );
+          return;
         }
 
-        const newFen =
-          currentGame.fen();
+        const deadPieces =
+          getDeadPieces(
+            currentFen
+          );
 
-        setGame(currentGame);
-        setFen(newFen);
-        setFenHistory(prev => [
-          ...prev,
-          newFen
-        ]);
+        const deadIndex =
+          deadPieces.findIndex(
+            piece =>
+              piece.type ===
+                selectedRevivePiece &&
+              piece.points <=
+                revivePoints
+          );
 
-        setRevivePoints(0);
-        setSelectedRevivePiece(null);
-        setActiveCard(null);
-        setMovesRemaining(0);
+        if (deadIndex === -1) {
+          showToast(
+            '해당 기물이 무덤에 없습니다.',
+            'error'
+          );
 
-        syncState({
-          fen: newFen,
-          activeCard: null,
-          movesRemaining: 0,
-          revivePoints: 0
-        });
+          setSelectedRevivePiece(
+            null
+          );
 
-        setTimeout(() => {
-          endTurn(newFen);
-        }, 500);
-      } catch (e) {
-        console.error(
-          '[AI 부활 오류]',
-          e
-        );
+          return;
+        }
 
-        isTransitioning.current = false;
-      }
-    },
-    [
-      getDeadPieces,
-      unoTurnColor,
-      endTurn,
-      syncState
-    ]
-  );
-
-  const handleWildCard = useCallback(
-    currentFen => {
-      const currentGame =
-        new Chess(currentFen);
-
-      const isMated =
-        currentGame.isCheckmate();
-
-      if (isMated) {
-        showToast(
-          '와일드! 3턴 전으로 되돌립니다!',
-          'info'
-        );
-
-        let newFen = currentFen;
-
-        const historyCopy = [
-          ...fenHistory
-        ];
-
-        const captureHistoryCopy = [
-          ...captureHistory
-        ];
-
-        for (let i = 0; i < 3; i++) {
-          if (historyCopy.length > 1) {
-            historyCopy.pop();
-
-            newFen =
-              historyCopy[
-                historyCopy.length - 1
-              ];
-          }
-
+        try {
           if (
-            captureHistoryCopy.length > 1
+            selectedRevivePiece ===
+            'k'
           ) {
-            captureHistoryCopy.pop();
-          }
-        }
+            for (
+              let rankNo = 1;
+              rankNo <= 8;
+              rankNo++
+            ) {
+              for (
+                let fileNo = 0;
+                fileNo < 8;
+                fileNo++
+              ) {
+                const sq =
+                  String.fromCharCode(
+                    97 + fileNo
+                  ) + rankNo;
 
-        const restoredTargets =
-          captureHistoryCopy[
-            captureHistoryCopy.length - 1
-          ] || {
-            w: { k: false, q: false },
-            b: { k: false, q: false }
+                const piece =
+                  currentGame.get(
+                    sq
+                  );
+
+                if (
+                  piece?.type ===
+                    'k' &&
+                  piece.color ===
+                    unoTurnColor
+                ) {
+                  currentGame.remove(
+                    sq
+                  );
+                }
+              }
+            }
+          }
+
+          currentGame.put(
+            {
+              type:
+                selectedRevivePiece,
+              color:
+                unoTurnColor
+            },
+            square
+          );
+
+          const newFen =
+            currentGame.fen();
+
+          const nextPoints =
+            revivePoints - cost;
+
+          const nextCaptured = {
+            w: {
+              ...capturedTargets.w
+            },
+            b: {
+              ...capturedTargets.b
+            }
           };
 
-        const newGame =
-          new Chess(newFen);
+          nextCaptured[
+            unoTurnColor
+          ][
+            selectedRevivePiece
+          ] = false;
 
-        setGame(newGame);
-        setFen(newFen);
-        setFenHistory(historyCopy);
-        setCaptureHistory(
-          captureHistoryCopy
-        );
-        setCapturedTargets(
-          restoredTargets
-        );
+          setCapturedTargets(
+            nextCaptured
+          );
 
-        syncState({
-          fen: newFen,
-          capturedTargets:
-            restoredTargets,
-          toast:
-            '와일드카드로 3턴 전으로 롤백되었습니다!'
-        });
+          setCaptureHistory(
+            prev => [
+              ...prev,
+              nextCaptured
+            ]
+          );
 
-        setTimeout(() => {
-          endTurn(newFen);
-        }, 1800);
-      } else {
-        showToast(
-          '와일드! 체크메이트 위기에서만 3턴 롤백이 가능합니다.',
-          'info'
-        );
+          setGame(currentGame);
+          setFen(newFen);
 
-        setMovesRemaining(2);
+          setFenHistory(
+            prev => [
+              ...prev,
+              newFen
+            ]
+          );
 
-        syncState({
-          movesRemaining: 2
-        });
-      }
-    },
-    [
-      fenHistory,
-      captureHistory,
-      endTurn,
-      showToast,
-      syncState
-    ]
-  );
+          setRevivePoints(
+            nextPoints
+          );
 
-  const handleDrawCard = useCallback(() => {
-    if (gameOverMsg || activeCard) {
-      return;
-    }
+          setSelectedRevivePiece(
+            null
+          );
 
-    if (
-      (mode === 'p2p' || mode === 'ai') &&
-      unoTurnColor !== myColor
-    ) {
-      showToast(
-        '상대방의 턴입니다.',
-        'error'
-      );
-      return;
-    }
+          syncState({
+            fen: newFen,
+            activeCard,
+            movesRemaining: 0,
+            revivePoints:
+              nextPoints,
+            capturedTargets:
+              nextCaptured
+          });
 
-    const currentGame =
-      new Chess(fen);
+          if (
+            nextPoints <= 0
+          ) {
+            showToast(
+              '부활 포인트를 모두 사용했습니다! 턴이 종료됩니다.',
+              'info'
+            );
 
-    if (
-      currentGame.turn() !== unoTurnColor
-    ) {
-      showToast(
-        '현재 턴인 플레이어만 카드를 뽑을 수 있습니다!',
-        'error'
-      );
-      return;
-    }
+            setTimeout(() => {
+              finishRevive(
+                newFen
+              );
+            }, 350);
 
-    let currentDeck = [...deck];
+            return;
+          }
 
-    if (currentDeck.length === 0) {
-      currentDeck = generateDeck();
-    }
+          const nextDead =
+            getDeadPieces(
+              newFen
+            ).filter(
+              piece =>
+                piece.points <=
+                nextPoints
+            );
 
-    const card =
-      currentDeck.pop();
+          if (
+            nextDead.length === 0
+          ) {
+            showToast(
+              `남은 ${nextPoints}P로 부활할 기물이 없어 턴을 종료합니다.`,
+              'info'
+            );
 
-    setDeck(currentDeck);
-    setActiveCard(card);
-    setRevivePoints(0);
-    setSelectedRevivePiece(null);
+            setTimeout(() => {
+              finishRevive(
+                newFen
+              );
+            }, 500);
 
-    if (card.type === 'number') {
-      setMovesRemaining(
-        card.value
-      );
+            return;
+          }
 
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: card.value,
-        revivePoints: 0
-      });
-    }
+          showToast(
+            `${cost}포인트 사용! ${nextPoints}포인트 남음.`,
+            'info'
+          );
+        } catch (e) {
+          console.error(
+            '[부활] 기물 배치 실패:',
+            e
+          );
 
-    else if (card.type === 'skip') {
-      setMovesRemaining(0);
-
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0
-      });
-
-      showToast(
-        '스킵! 턴이 넘어갑니다.'
-      );
-
-      setTimeout(() => {
-        endTurn(
-          stateRef.current.fen
-        );
-      }, 1200);
-    }
-
-    else if (card.type === 'reverse') {
-      const newOrient =
-        boardOrientation === 'white'
-          ? 'black'
-          : 'white';
-
-      const newColor =
-        myColor === 'w'
-          ? 'b'
-          : 'w';
-
-      setBoardOrientation(
-        newOrient
-      );
-
-      if (mode === 'p2p') {
-        setMyColor(newColor);
-      }
-
-      setMovesRemaining(0);
-
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0,
-        unoTurnColor
-      });
-
-      sendMessage({
-        type: 'REVERSE',
-        boardOrientation:
-          newOrient,
-        myColor: newColor,
+          showToast(
+            '이 칸에는 기물을 부활시킬 수 없습니다.',
+            'error'
+          );
+        }
+      },
+      [
+        activeCard,
+        selectedRevivePiece,
+        revivePoints,
         unoTurnColor,
-        activeCard: card
-      });
+        myColor,
+        mode,
+        capturedTargets,
+        getDeadPieces,
+        syncState,
+        showToast,
+        finishRevive
+      ]
+    );
 
-      showToast(
-        '리버스! 진영과 시점이 180도 뒤집혔습니다!',
-        'info'
+  const handleAIRevive =
+    useCallback(
+      (maxPoints, currentFen) => {
+        try {
+          const currentGame =
+            new Chess(currentFen);
+
+          const points = {
+            p: 1,
+            n: 3,
+            b: 3,
+            r: 3,
+            q: 4,
+            k: 4
+          };
+
+          let remaining =
+            maxPoints;
+
+          let deadPieces =
+            getDeadPieces(
+              currentFen
+            );
+
+          const ranks =
+            unoTurnColor === 'w'
+              ? [1, 2]
+              : [7, 8];
+
+          const emptySquares = [];
+
+          ranks.forEach(
+            rank => {
+              for (
+                let file = 0;
+                file < 8;
+                file++
+              ) {
+                const square =
+                  String.fromCharCode(
+                    97 + file
+                  ) + rank;
+
+                if (
+                  !currentGame.get(
+                    square
+                  )
+                ) {
+                  emptySquares.push(
+                    square
+                  );
+                }
+              }
+            }
+          );
+
+          const reviveTypes = [
+            'q',
+            'r',
+            'b',
+            'n',
+            'p',
+            'k'
+          ];
+
+          for (
+            const type of reviveTypes
+          ) {
+            while (
+              deadPieces.some(
+                piece =>
+                  piece.type ===
+                  type
+              ) &&
+              remaining >=
+                points[type] &&
+              emptySquares.length > 0
+            ) {
+              const squareIndex =
+                Math.floor(
+                  Math.random() *
+                    emptySquares.length
+                );
+
+              const square =
+                emptySquares.splice(
+                  squareIndex,
+                  1
+                )[0];
+
+              currentGame.put(
+                {
+                  type,
+                  color:
+                    unoTurnColor
+                },
+                square
+              );
+
+              remaining -=
+                points[type];
+
+              const nextIndex =
+                deadPieces.findIndex(
+                  piece =>
+                    piece.type ===
+                    type
+                );
+
+              if (
+                nextIndex !== -1
+              ) {
+                deadPieces.splice(
+                  nextIndex,
+                  1
+                );
+              }
+            }
+          }
+
+          const newFen =
+            currentGame.fen();
+
+          setGame(currentGame);
+          setFen(newFen);
+
+          setFenHistory(
+            prev => [
+              ...prev,
+              newFen
+            ]
+          );
+
+          setRevivePoints(0);
+          setSelectedRevivePiece(
+            null
+          );
+          setActiveCard(null);
+          setMovesRemaining(0);
+
+          syncState({
+            fen: newFen,
+            activeCard: null,
+            movesRemaining: 0,
+            revivePoints: 0
+          });
+
+          setTimeout(() => {
+            endTurn(newFen);
+          }, 500);
+        } catch (e) {
+          console.error(
+            '[AI 부활 오류]',
+            e
+          );
+
+          isTransitioning.current =
+            false;
+        }
+      },
+      [
+        getDeadPieces,
+        unoTurnColor,
+        endTurn,
+        syncState
+      ]
+    );
+
+  const handleWildCard =
+    useCallback(
+      currentFen => {
+        const currentGame =
+          new Chess(currentFen);
+
+        const isMated =
+          currentGame.isCheckmate();
+
+        if (isMated) {
+          showToast(
+            '와일드! 3턴 전으로 되돌립니다!',
+            'info'
+          );
+
+          let newFen =
+            currentFen;
+
+          const historyCopy = [
+            ...fenHistory
+          ];
+
+          const captureHistoryCopy = [
+            ...captureHistory
+          ];
+
+          for (
+            let i = 0;
+            i < 3;
+            i++
+          ) {
+            if (
+              historyCopy.length > 1
+            ) {
+              historyCopy.pop();
+
+              newFen =
+                historyCopy[
+                  historyCopy.length - 1
+                ];
+            }
+
+            if (
+              captureHistoryCopy.length >
+              1
+            ) {
+              captureHistoryCopy.pop();
+            }
+          }
+
+          const restoredTargets =
+            captureHistoryCopy[
+              captureHistoryCopy.length -
+                1
+            ] || {
+              w: {
+                k: false,
+                q: false
+              },
+              b: {
+                k: false,
+                q: false
+              }
+            };
+
+          const newGame =
+            new Chess(newFen);
+
+          setGame(newGame);
+          setFen(newFen);
+          setFenHistory(
+            historyCopy
+          );
+
+          setCaptureHistory(
+            captureHistoryCopy
+          );
+
+          setCapturedTargets(
+            restoredTargets
+          );
+
+          syncState({
+            fen: newFen,
+            capturedTargets:
+              restoredTargets,
+            toast:
+              '와일드카드로 3턴 전으로 롤백되었습니다!'
+          });
+
+          setTimeout(() => {
+            endTurn(newFen);
+          }, 1800);
+        } else {
+          showToast(
+            '와일드! 체크메이트 위기에서만 3턴 롤백이 가능합니다.',
+            'info'
+          );
+
+          setMovesRemaining(2);
+
+          syncState({
+            movesRemaining: 2
+          });
+        }
+      },
+      [
+        fenHistory,
+        captureHistory,
+        endTurn,
+        showToast,
+        syncState
+      ]
+    );
+
+  const handleDrawCard =
+    useCallback(() => {
+      if (
+        gameOverMsg ||
+        activeCard
+      ) {
+        return;
+      }
+
+      if (
+        (mode === 'p2p' ||
+          mode === 'ai') &&
+        unoTurnColor !== myColor
+      ) {
+        showToast(
+          '상대방의 턴입니다.',
+          'error'
+        );
+        return;
+      }
+
+      const currentGame =
+        new Chess(fen);
+
+      if (
+        currentGame.turn() !==
+        unoTurnColor
+      ) {
+        showToast(
+          '현재 턴인 플레이어만 카드를 뽑을 수 있습니다!',
+          'error'
+        );
+
+        return;
+      }
+
+      let currentDeck = [
+        ...deck
+      ];
+
+      if (
+        currentDeck.length === 0
+      ) {
+        currentDeck =
+          generateDeck();
+      }
+
+      const card =
+        currentDeck.pop();
+
+      setDeck(currentDeck);
+      setActiveCard(card);
+      setRevivePoints(0);
+      setSelectedRevivePiece(
+        null
       );
 
-      setTimeout(() => {
-        setActiveCard(null);
+      if (
+        card.type === 'number'
+      ) {
+        setMovesRemaining(
+          card.value
+        );
+
+        syncState({
+          activeCard: card,
+          deck: currentDeck,
+          movesRemaining:
+            card.value,
+          revivePoints: 0
+        });
+      } else if (
+        card.type === 'skip'
+      ) {
         setMovesRemaining(0);
 
         syncState({
-          activeCard: null,
+          activeCard: card,
+          deck: currentDeck,
+          movesRemaining: 0
+        });
+
+        showToast(
+          '스킵! 턴이 넘어갑니다.'
+        );
+
+        setTimeout(() => {
+          endTurn(
+            stateRef.current.fen
+          );
+        }, 1200);
+      } else if (
+        card.type === 'reverse'
+      ) {
+        const newOrient =
+          boardOrientation ===
+          'white'
+            ? 'black'
+            : 'white';
+
+        const newColor =
+          myColor === 'w'
+            ? 'b'
+            : 'w';
+
+        setBoardOrientation(
+          newOrient
+        );
+
+        if (mode === 'p2p') {
+          setMyColor(newColor);
+        }
+
+        setMovesRemaining(0);
+
+        syncState({
+          activeCard: card,
+          deck: currentDeck,
           movesRemaining: 0,
           unoTurnColor
         });
-      }, 1200);
-    }
 
-    else if (card.type === 'draw') {
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0,
-        revivePoints: card.value
-      });
+        sendMessage({
+          type: 'REVERSE',
+          boardOrientation:
+            newOrient,
+          myColor: newColor,
+          unoTurnColor,
+          activeCard: card
+        });
 
-      startRevive(
-        card,
-        fen
-      );
-    }
+        showToast(
+          '리버스! 진영과 시점이 180도 뒤집혔습니다!',
+          'info'
+        );
 
-    else if (card.type === 'wild') {
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0
-      });
+        setTimeout(() => {
+          setActiveCard(null);
+          setMovesRemaining(0);
 
-      handleWildCard(fen);
-    }
-  }, [
-    deck,
-    gameOverMsg,
-    activeCard,
-    fen,
-    unoTurnColor,
-    myColor,
-    mode,
-    boardOrientation,
-    endTurn,
-    startRevive,
-    handleWildCard,
-    showToast,
-    syncState,
-    sendMessage
-  ]);
+          syncState({
+            activeCard: null,
+            movesRemaining: 0,
+            unoTurnColor
+          });
+        }, 1200);
+      } else if (
+        card.type === 'draw'
+      ) {
+        syncState({
+          activeCard: card,
+          deck: currentDeck,
+          movesRemaining: 0,
+          revivePoints:
+            card.value
+        });
 
-  const onSquareClick = square => {
-    if (
-      activeCard?.type === 'draw' &&
-      revivePoints > 0 &&
-      selectedRevivePiece
-    ) {
-      handleReviveSquareClick(
-        square
-      );
-    }
-  };
+        startRevive(
+          card,
+          fen
+        );
+      } else if (
+        card.type === 'wild'
+      ) {
+        syncState({
+          activeCard: card,
+          deck: currentDeck,
+          movesRemaining: 0
+        });
 
-  /*
-   * 기존에는 킹만 customPieces로 직접 렌더링해서
-   * 킹만 다른 디자인으로 보였다.
-   *
-   * 이제 모든 말을 동일한 Unicode 스타일로 렌더링한다.
-   */
-  const customPieces = {
-    wP: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♙
-      </div>
-    ),
+        handleWildCard(fen);
+      }
+    }, [
+      deck,
+      gameOverMsg,
+      activeCard,
+      fen,
+      unoTurnColor,
+      myColor,
+      mode,
+      boardOrientation,
+      endTurn,
+      startRevive,
+      handleWildCard,
+      showToast,
+      syncState,
+      sendMessage
+    ]);
 
-    wN: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♘
-      </div>
-    ),
-
-    wB: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♗
-      </div>
-    ),
-
-    wR: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♖
-      </div>
-    ),
-
-    wQ: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♕
-      </div>
-    ),
-
-    wK: ({ squareWidth }) =>
-      capturedTargets.w.k ? null : (
-        <div
-          className="custom-chess-piece"
-          style={{
-            width: squareWidth,
-            height: squareWidth,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: squareWidth * 0.72,
-            lineHeight: 1
-          }}
-        >
-          ♔
-        </div>
-      ),
-
-    bP: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♟
-      </div>
-    ),
-
-    bN: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♞
-      </div>
-    ),
-
-    bB: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♝
-      </div>
-    ),
-
-    bR: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♜
-      </div>
-    ),
-
-    bQ: ({ squareWidth }) => (
-      <div
-        className="custom-chess-piece"
-        style={{
-          width: squareWidth,
-          height: squareWidth,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: squareWidth * 0.72,
-          lineHeight: 1
-        }}
-      >
-        ♛
-      </div>
-    ),
-
-    bK: ({ squareWidth }) =>
-      capturedTargets.b.k ? null : (
-        <div
-          className="custom-chess-piece"
-          style={{
-            width: squareWidth,
-            height: squareWidth,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: squareWidth * 0.72,
-            lineHeight: 1
-          }}
-        >
-          ♚
-        </div>
-      )
-  };
+  const onSquareClick =
+    square => {
+      if (
+        activeCard?.type ===
+          'draw' &&
+        revivePoints > 0 &&
+        selectedRevivePiece
+      ) {
+        handleReviveSquareClick(
+          square
+        );
+      }
+    };
 
   const reviveSquareStyles = {};
 
@@ -2003,16 +2277,18 @@ export default function App() {
     revivePoints > 0 &&
     selectedRevivePiece
   ) {
-    getReviveSquares(fen).forEach(
-      square => {
-        reviveSquareStyles[square] = {
-          boxShadow:
-            'inset 0 0 0 5px rgba(250, 204, 21, 0.95)',
-          backgroundColor:
-            'rgba(250, 204, 21, 0.22)'
-        };
-      }
-    );
+    getReviveSquares(
+      fen
+    ).forEach(square => {
+      reviveSquareStyles[
+        square
+      ] = {
+        boxShadow:
+          'inset 0 0 0 5px rgba(250, 204, 21, 0.95)',
+        backgroundColor:
+          'rgba(250, 204, 21, 0.22)'
+      };
+    });
   }
 
   const onDrop = (
@@ -2024,13 +2300,15 @@ export default function App() {
     }
 
     if (
-      (mode === 'p2p' || mode === 'ai') &&
+      (mode === 'p2p' ||
+        mode === 'ai') &&
       unoTurnColor !== myColor
     ) {
       showToast(
         '상대방의 턴입니다.',
         'error'
       );
+
       return false;
     }
 
@@ -2051,12 +2329,14 @@ export default function App() {
 
     if (
       !piece ||
-      piece.color !== unoTurnColor
+      piece.color !==
+        unoTurnColor
     ) {
       showToast(
         '현재 턴인 진영의 말만 움직일 수 있습니다!',
         'error'
       );
+
       return false;
     }
 
@@ -2065,12 +2345,10 @@ export default function App() {
         targetSquare
       );
 
-    /*
-     * 킹 / 퀸 캡처 처리
-     */
     if (
       targetPiece &&
-      targetPiece.color !== unoTurnColor &&
+      targetPiece.color !==
+        unoTurnColor &&
       (
         targetPiece.type === 'k' ||
         targetPiece.type === 'q'
@@ -2118,14 +2396,16 @@ export default function App() {
         } else {
           const legalMoves =
             currentGame.moves({
-              square: sourceSquare,
+              square:
+                sourceSquare,
               verbose: true
             });
 
           canCapture =
             legalMoves.some(
               move =>
-                move.to === targetSquare
+                move.to ===
+                targetSquare
             );
         }
       } catch (e) {
@@ -2147,14 +2427,13 @@ export default function App() {
 
       nextCaptured[
         targetPiece.color
-      ][targetPiece.type] = true;
+      ][
+        targetPiece.type
+      ] = true;
 
       let nextGame =
         currentGame;
 
-      /*
-       * 퀸은 실제 체스판에서도 제거한다.
-       */
       if (
         targetPiece.type === 'q'
       ) {
@@ -2173,10 +2452,6 @@ export default function App() {
           currentGame;
       }
 
-      /*
-       * 킹은 실제 FEN에서 제거하지 않는다.
-       * capturedTargets에서만 잡힌 것으로 기록한다.
-       */
       const newMovesRemaining =
         movesRemaining - 1;
 
@@ -2217,8 +2492,12 @@ export default function App() {
         targetPiece.color;
 
       const hasWon =
-        nextCaptured[opponent].k &&
-        nextCaptured[opponent].q;
+        nextCaptured[
+          opponent
+        ].k &&
+        nextCaptured[
+          opponent
+        ].q;
 
       if (hasWon) {
         const winnerMsg =
@@ -2256,20 +2535,10 @@ export default function App() {
       if (
         newMovesRemaining > 0
       ) {
-        /*
-         * 숫자 카드가 남아 있으면
-         * 같은 UNO 턴 유지.
-         */
         forceKeepTurn(
           newFen
         );
       } else {
-        /*
-         * 킹 캡처에서는 chess.js의 active color가
-         * 실제 이동과 우리가 원하는 UNO 턴과 다를 수 있다.
-         *
-         * endTurn에서 일괄적으로 처리한다.
-         */
         endTurn(
           newFen,
           {
@@ -2282,9 +2551,6 @@ export default function App() {
       return true;
     }
 
-    /*
-     * 일반 체스 이동
-     */
     try {
       let move =
         currentGame.move({
@@ -2293,10 +2559,6 @@ export default function App() {
           promotion: 'q'
         });
 
-      /*
-       * UNO Chess는 체크메이트가 게임 종료 조건이 아니므로
-       * 체크 상태에서도 이동을 허용한다.
-       */
       if (
         move === null &&
         currentGame.isCheck()
@@ -2332,10 +2594,12 @@ export default function App() {
 
             if (
               p &&
-              p.color === unoTurnColor &&
+              p.color ===
+                unoTurnColor &&
               p.type === 'k'
             ) {
-              ownKingSquare = sq;
+              ownKingSquare =
+                sq;
               break;
             }
           }
@@ -2349,7 +2613,8 @@ export default function App() {
           movingPiece &&
           ownKingSquare
         ) {
-          const safeSquares = [];
+          const safeSquares =
+            [];
 
           for (
             let rank = 1;
@@ -2367,9 +2632,12 @@ export default function App() {
                 ) + rank;
 
               if (
-                sq !== ownKingSquare &&
-                sq !== sourceSquare &&
-                sq !== targetSquare &&
+                sq !==
+                  ownKingSquare &&
+                sq !==
+                  sourceSquare &&
+                sq !==
+                  targetSquare &&
                 !relaxed.get(sq)
               ) {
                 safeSquares.push(
@@ -2383,7 +2651,8 @@ export default function App() {
             null;
 
           for (
-            const safeSquare of safeSquares
+            const safeSquare of
+              safeSquares
           ) {
             const test =
               new Chess(fen);
@@ -2396,15 +2665,18 @@ export default function App() {
               test.put(
                 {
                   type: 'k',
-                  color: unoTurnColor
+                  color:
+                    unoTurnColor
                 },
                 safeSquare
               );
 
               const candidate =
                 test.move({
-                  from: sourceSquare,
-                  to: targetSquare,
+                  from:
+                    sourceSquare,
+                  to:
+                    targetSquare,
                   promotion: 'q'
                 });
 
@@ -2416,7 +2688,8 @@ export default function App() {
                 test.put(
                   {
                     type: 'k',
-                    color: unoTurnColor
+                    color:
+                      unoTurnColor
                   },
                   ownKingSquare
                 );
@@ -2438,8 +2711,10 @@ export default function App() {
             );
 
             move = {
-              from: sourceSquare,
-              to: targetSquare
+              from:
+                sourceSquare,
+              to:
+                targetSquare
             };
           }
         }
@@ -2459,13 +2734,8 @@ export default function App() {
         newMovesRemaining
       );
 
-      setGame(
-        currentGame
-      );
-
-      setFen(
-        newFen
-      );
+      setGame(currentGame);
+      setFen(newFen);
 
       setFenHistory(
         prev => [
@@ -2488,9 +2758,7 @@ export default function App() {
           newFen
         );
       } else {
-        endTurn(
-          newFen
-        );
+        endTurn(newFen);
       }
 
       return true;
@@ -2504,9 +2772,6 @@ export default function App() {
     }
   };
 
-  /*
-   * AI 턴
-   */
   useEffect(() => {
     const aiColor =
       myColor === 'w'
@@ -2529,61 +2794,191 @@ export default function App() {
       stateRef.current.activeCard;
 
     const timer =
-      setTimeout(() => {
-        const current =
-          stateRef.current;
+      setTimeout(
+        () => {
+          const current =
+            stateRef.current;
 
-        try {
-          /*
-           * AI가 아직 카드를 뽑지 않은 경우
-           */
-          if (!current.activeCard) {
-            let currentDeck =
-              Array.isArray(
-                current.deck
-              )
-                ? [...current.deck]
-                : [];
+          try {
+            if (!current.activeCard) {
+              let currentDeck =
+                Array.isArray(
+                  current.deck
+                )
+                  ? [
+                      ...current.deck
+                    ]
+                  : [];
 
-            if (
-              currentDeck.length === 0
-            ) {
-              currentDeck =
-                generateDeck();
-            }
+              if (
+                currentDeck.length ===
+                0
+              ) {
+                currentDeck =
+                  generateDeck();
+              }
 
-            const card =
-              currentDeck.pop();
+              const card =
+                currentDeck.pop();
 
-            setDeck(
-              currentDeck
-            );
-
-            setActiveCard(
-              card
-            );
-
-            syncState({
-              activeCard:
-                card,
-              deck:
-                currentDeck,
-              movesRemaining:
-                card.type === 'number'
-                  ? card.value
-                  : 0
-            });
-
-            if (
-              card.type === 'number'
-            ) {
-              setMovesRemaining(
-                card.value
+              setDeck(
+                currentDeck
               );
 
-              showToast(
-                `AI 카드: ${card.name}`
+              setActiveCard(
+                card
               );
+
+              syncState({
+                activeCard:
+                  card,
+                deck:
+                  currentDeck,
+                movesRemaining:
+                  card.type ===
+                  'number'
+                    ? card.value
+                    : 0
+              });
+
+              if (
+                card.type ===
+                'number'
+              ) {
+                setMovesRemaining(
+                  card.value
+                );
+
+                showToast(
+                  `AI 카드: ${card.name}`
+                );
+
+                isTransitioning.current =
+                  false;
+
+                return;
+              }
+
+              if (
+                card.type ===
+                'skip'
+              ) {
+                showToast(
+                  'AI 카드: Skip'
+                );
+
+                setTimeout(
+                  () => {
+                    setActiveCard(
+                      null
+                    );
+
+                    setMovesRemaining(
+                      0
+                    );
+
+                    safelyPassTurn(
+                      stateRef.current
+                        .fen
+                    );
+
+                    isTransitioning.current =
+                      false;
+                  },
+                  900
+                );
+
+                return;
+              }
+
+              if (
+                card.type ===
+                'reverse'
+              ) {
+                showToast(
+                  'AI 카드: Reverse'
+                );
+
+                setBoardOrientation(
+                  prev =>
+                    prev === 'white'
+                      ? 'black'
+                      : 'white'
+                );
+
+                setMyColor(
+                  prev =>
+                    prev === 'w'
+                      ? 'b'
+                      : 'w'
+                );
+
+                setTimeout(
+                  () => {
+                    setActiveCard(
+                      null
+                    );
+
+                    setMovesRemaining(
+                      0
+                    );
+
+                    syncState({
+                      activeCard:
+                        null,
+                      movesRemaining:
+                        0,
+                      unoTurnColor:
+                        stateRef
+                          .current
+                          .unoTurnColor
+                    });
+
+                    isTransitioning.current =
+                      false;
+                  },
+                  900
+                );
+
+                return;
+              }
+
+              if (
+                card.type ===
+                'draw'
+              ) {
+                showToast(
+                  `AI 카드: Draw ${card.value}+`
+                );
+
+                handleAIRevive(
+                  card.value,
+                  current.fen
+                );
+
+                isTransitioning.current =
+                  false;
+
+                return;
+              }
+
+              if (
+                card.type ===
+                'wild'
+              ) {
+                showToast(
+                  'AI 카드: Wild'
+                );
+
+                handleWildCard(
+                  current.fen
+                );
+
+                isTransitioning.current =
+                  false;
+
+                return;
+              }
 
               isTransitioning.current =
                 false;
@@ -2592,13 +2987,26 @@ export default function App() {
             }
 
             if (
-              card.type === 'skip'
+              current.activeCard
+                .type ===
+                'number' &&
+              current.movesRemaining >
+                0
             ) {
-              showToast(
-                'AI 카드: Skip'
-              );
+              const currentGame =
+                new Chess(
+                  current.fen
+                );
 
-              setTimeout(() => {
+              const possibleMoves =
+                currentGame.moves({
+                  verbose: true
+                });
+
+              if (
+                possibleMoves.length ===
+                0
+              ) {
                 setActiveCard(
                   null
                 );
@@ -2608,343 +3016,215 @@ export default function App() {
                 );
 
                 safelyPassTurn(
-                  stateRef.current.fen
+                  current.fen
                 );
 
                 isTransitioning.current =
                   false;
-              }, 900);
 
-              return;
-            }
+                return;
+              }
 
-            if (
-              card.type === 'reverse'
-            ) {
-              showToast(
-                'AI 카드: Reverse'
+              const aiMoves =
+                possibleMoves.filter(
+                  move => {
+                    const p =
+                      currentGame.get(
+                        move.from
+                      );
+
+                    return (
+                      p &&
+                      p.color ===
+                        aiColor
+                    );
+                  }
+                );
+
+              if (
+                aiMoves.length ===
+                0
+              ) {
+                showToast(
+                  'AI가 움직일 수 있는 기물이 없어 턴을 넘깁니다.',
+                  'info'
+                );
+
+                endTurn(
+                  current.fen
+                );
+
+                isTransitioning.current =
+                  false;
+
+                return;
+              }
+
+              const move =
+                aiMoves[
+                  Math.floor(
+                    Math.random() *
+                      aiMoves.length
+                  )
+                ];
+
+              const targetPiece =
+                currentGame.get(
+                  move.to
+                );
+
+              const moverColor =
+                currentGame.get(
+                  move.from
+                )?.color;
+
+              if (
+                moverColor !==
+                aiColor
+              ) {
+                forceKeepTurn(
+                  current.fen
+                );
+
+                isTransitioning.current =
+                  false;
+
+                return;
+              }
+
+              const nextCaptured = {
+                w: {
+                  ...current
+                    .capturedTargets
+                    .w
+                },
+                b: {
+                  ...current
+                    .capturedTargets
+                    .b
+                }
+              };
+
+              if (
+                targetPiece &&
+                targetPiece.color ===
+                  'w' &&
+                (
+                  targetPiece.type ===
+                    'k' ||
+                  targetPiece.type ===
+                    'q'
+                )
+              ) {
+                nextCaptured.w[
+                  targetPiece.type
+                ] = true;
+              }
+
+              currentGame.move(
+                move
               );
 
-              setBoardOrientation(
-                prev =>
-                  prev === 'white'
-                    ? 'black'
-                    : 'white'
+              const newFen =
+                currentGame.fen();
+
+              const remaining =
+                current.movesRemaining -
+                1;
+
+              setGame(
+                currentGame
               );
 
-              setMyColor(
-                prev =>
-                  prev === 'w'
-                    ? 'b'
-                    : 'w'
+              setFen(newFen);
+
+              setFenHistory(
+                prev => [
+                  ...prev,
+                  newFen
+                ]
               );
 
-              setTimeout(() => {
-                setActiveCard(
-                  null
+              setCapturedTargets(
+                nextCaptured
+              );
+
+              setCaptureHistory(
+                prev => [
+                  ...prev,
+                  nextCaptured
+                ]
+              );
+
+              if (
+                nextCaptured.w.k &&
+                nextCaptured.w.q
+              ) {
+                const msg =
+                  'AI가 당신의 킹과 퀸을 모두 잡았습니다! 패배!';
+
+                setGameOverMsg(
+                  msg
                 );
 
                 setMovesRemaining(
                   0
                 );
 
+                setActiveCard(
+                  null
+                );
+
                 syncState({
-                  activeCard:
-                    null,
-                  movesRemaining:
-                    0,
-                  unoTurnColor:
-                    stateRef.current
-                      .unoTurnColor
-                });
-
-                isTransitioning.current =
-                  false;
-              }, 900);
-
-              return;
-            }
-
-            if (
-              card.type === 'draw'
-            ) {
-              showToast(
-                `AI 카드: Draw ${card.value}+`
-              );
-
-              handleAIRevive(
-                card.value,
-                current.fen
-              );
-
-              isTransitioning.current =
-                false;
-
-              return;
-            }
-
-            if (
-              card.type === 'wild'
-            ) {
-              showToast(
-                'AI 카드: Wild'
-              );
-
-              handleWildCard(
-                current.fen
-              );
-
-              isTransitioning.current =
-                false;
-
-              return;
-            }
-
-            isTransitioning.current =
-              false;
-
-            return;
-          }
-
-          /*
-           * AI가 숫자 카드를 들고 있는 상태
-           */
-          if (
-            current.activeCard.type ===
-              'number' &&
-            current.movesRemaining > 0
-          ) {
-            const currentGame =
-              new Chess(
-                current.fen
-              );
-
-            const possibleMoves =
-              currentGame.moves({
-                verbose: true
-              });
-
-            if (
-              possibleMoves.length === 0
-            ) {
-              setActiveCard(
-                null
-              );
-
-              setMovesRemaining(
-                0
-              );
-
-              safelyPassTurn(
-                current.fen
-              );
-
-              isTransitioning.current =
-                false;
-
-              return;
-            }
-
-            /*
-             * AI가 현재 UNO 턴 색에 맞는 말만 움직이게 한다.
-             */
-            const aiMoves =
-              possibleMoves.filter(
-                move => {
-                  const p =
-                    currentGame.get(
-                      move.from
-                    );
-
-                  return (
-                    p &&
-                    p.color === aiColor
-                  );
-                }
-              );
-
-            if (
-              aiMoves.length === 0
-            ) {
-              showToast(
-                'AI가 움직일 수 있는 기물이 없어 턴을 넘깁니다.',
-                'info'
-              );
-
-              endTurn(
-                current.fen
-              );
-
-              isTransitioning.current =
-                false;
-
-              return;
-            }
-
-            const move =
-              aiMoves[
-                Math.floor(
-                  Math.random() *
-                    aiMoves.length
-                )
-              ];
-
-            const targetPiece =
-              currentGame.get(
-                move.to
-              );
-
-            const moverColor =
-              currentGame.get(
-                move.from
-              )?.color;
-
-            if (
-              moverColor !== aiColor
-            ) {
-              forceKeepTurn(
-                current.fen
-              );
-
-              isTransitioning.current =
-                false;
-
-              return;
-            }
-
-            const nextCaptured = {
-              w: {
-                ...current.capturedTargets.w
-              },
-              b: {
-                ...current.capturedTargets.b
-              }
-            };
-
-            if (
-              targetPiece &&
-              targetPiece.color === 'w' &&
-              (
-                targetPiece.type === 'k' ||
-                targetPiece.type === 'q'
-              )
-            ) {
-              nextCaptured.w[
-                targetPiece.type
-              ] = true;
-            }
-
-            currentGame.move(
-              move
-            );
-
-            const newFen =
-              currentGame.fen();
-
-            const remaining =
-              current.movesRemaining - 1;
-
-            setGame(
-              currentGame
-            );
-
-            setFen(
-              newFen
-            );
-
-            setFenHistory(
-              prev => [
-                ...prev,
-                newFen
-              ]
-            );
-
-            setCapturedTargets(
-              nextCaptured
-            );
-
-            setCaptureHistory(
-              prev => [
-                ...prev,
-                nextCaptured
-              ]
-            );
-
-            if (
-              nextCaptured.w.k &&
-              nextCaptured.w.q
-            ) {
-              const msg =
-                'AI가 당신의 킹과 퀸을 모두 잡았습니다! 패배!';
-
-              setGameOverMsg(
-                msg
-              );
-
-              setMovesRemaining(
-                0
-              );
-
-              setActiveCard(
-                null
-              );
-
-              syncState({
-                gameOverMsg:
-                  msg,
-                capturedTargets:
-                  nextCaptured,
-                movesRemaining: 0,
-                activeCard: null
-              });
-            }
-
-            else if (
-              remaining > 0
-            ) {
-              setMovesRemaining(
-                remaining
-              );
-
-              forceKeepTurn(
-                newFen
-              );
-            }
-
-            else {
-              endTurn(
-                newFen,
-                {
+                  gameOverMsg:
+                    msg,
                   capturedTargets:
-                    nextCaptured
-                }
-              );
-            }
-          }
+                    nextCaptured,
+                  movesRemaining: 0,
+                  activeCard: null
+                });
+              } else if (
+                remaining > 0
+              ) {
+                setMovesRemaining(
+                  remaining
+                );
 
-          else {
+                forceKeepTurn(
+                  newFen
+                );
+              } else {
+                endTurn(
+                  newFen,
+                  {
+                    capturedTargets:
+                      nextCaptured
+                  }
+                );
+              }
+            } else {
+              isTransitioning.current =
+                false;
+
+              return;
+            }
+          } catch (e) {
+            console.error(
+              '[AI] 턴 처리 오류:',
+              e
+            );
+
             isTransitioning.current =
               false;
-
-            return;
           }
-        } catch (e) {
-          console.error(
-            '[AI] 턴 처리 오류:',
-            e
-          );
 
           isTransitioning.current =
             false;
-        }
-
-        isTransitioning.current =
-          false;
-      },
-      currentActiveCard
-        ? 900
-        : 1000
-    );
+        },
+        currentActiveCard
+          ? 900
+          : 1000
+      );
 
     return () => {
       clearTimeout(timer);
@@ -2980,14 +3260,8 @@ export default function App() {
       b: { k: false, q: false }
     };
 
-    setGame(
-      newGame
-    );
-
-    setFen(
-      initialFen
-    );
-
+    setGame(newGame);
+    setFen(initialFen);
     setFenHistory([
       initialFen
     ]);
@@ -2996,47 +3270,26 @@ export default function App() {
       generateDeck()
     );
 
-    setActiveCard(
-      null
-    );
+    setActiveCard(null);
+    setMovesRemaining(0);
+    setRevivePoints(0);
+    setSelectedRevivePiece(null);
 
-    setMovesRemaining(
-      0
-    );
-
-    setRevivePoints(
-      0
-    );
-
-    setSelectedRevivePiece(
-      null
-    );
-
-    if (
-      mode === 'p2p'
-    ) {
+    if (mode === 'p2p') {
       setBoardOrientation(
         myColor === 'b'
           ? 'black'
           : 'white'
       );
     } else {
-      setMyColor(
-        'w'
-      );
-
+      setMyColor('w');
       setBoardOrientation(
         'white'
       );
     }
 
-    setUnoTurnColor(
-      'w'
-    );
-
-    setGameOverMsg(
-      ''
-    );
+    setUnoTurnColor('w');
+    setGameOverMsg('');
 
     setCapturedTargets(
       emptyCaptured
@@ -3093,9 +3346,6 @@ export default function App() {
     return `${turnName} 턴`;
   };
 
-  /*
-   * 메뉴
-   */
   if (mode === 'menu') {
     return (
       <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center p-4">
@@ -3123,7 +3373,9 @@ export default function App() {
             onClick={() => {
               setMode('local_pvp');
               resetGame();
-              setBoardOrientation('white');
+              setBoardOrientation(
+                'white'
+              );
             }}
             className="w-full py-4 bg-teal-600 hover:bg-teal-500 rounded-2xl text-xl font-bold transition-all transform hover:scale-105 flex items-center justify-center gap-3 shadow-lg"
           >
@@ -3190,9 +3442,6 @@ export default function App() {
     );
   }
 
-  /*
-   * P2P 대기실
-   */
   if (mode === 'p2p_lobby') {
     return (
       <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center p-4">
@@ -3260,7 +3509,9 @@ export default function App() {
               />
 
               <button
-                onClick={connectToPeer}
+                onClick={
+                  connectToPeer
+                }
                 disabled={
                   !remotePeerId ||
                   opponentConnected
@@ -3290,7 +3541,9 @@ export default function App() {
 
             {isHost && (
               <button
-                onClick={handleStartGame}
+                onClick={
+                  handleStartGame
+                }
                 disabled={
                   !opponentConnected
                 }
@@ -3312,7 +3565,9 @@ export default function App() {
             onClick={() => {
               setMode('menu');
               setPeerId('');
-              setOpponentConnected(false);
+              setOpponentConnected(
+                false
+              );
 
               connRef.current?.close();
               connRef.current = null;
@@ -3355,7 +3610,9 @@ export default function App() {
           className="text-2xl font-bold flex items-center gap-2 text-white cursor-pointer"
           onClick={() => {
             setMode('menu');
-            setOpponentConnected(false);
+            setOpponentConnected(
+              false
+            );
 
             connRef.current?.close();
             connRef.current = null;
@@ -3437,7 +3694,8 @@ export default function App() {
 
                 <div className="flex flex-wrap gap-2 min-h-[42px]">
                   {getDeadPieces(fen)
-                    .length === 0 ? (
+                    .length ===
+                  0 ? (
                     <span className="text-xs text-neutral-500">
                       잡힌 기물이 없습니다.
                     </span>
@@ -3473,8 +3731,10 @@ export default function App() {
 
                         const canChooseRevive =
                           !(
-                            mode === 'p2p' ||
-                            mode === 'ai'
+                            mode ===
+                              'p2p' ||
+                            mode ===
+                              'ai'
                           ) ||
                           unoTurnColor ===
                             myColor;
@@ -3563,9 +3823,6 @@ export default function App() {
                   customSquareStyles={
                     reviveSquareStyles
                   }
-                  customPieces={
-                    customPieces
-                  }
                   customDarkSquareStyle={{
                     backgroundColor:
                       '#475569'
@@ -3596,7 +3853,8 @@ export default function App() {
                     handleDrawCard
                   }
                   disabled={
-                    gameOverMsg !== ''
+                    gameOverMsg !==
+                    ''
                   }
                   className="w-56 h-80 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.6)] border-8 border-white flex flex-col items-center justify-center transition-all bg-gradient-to-br from-red-600 via-yellow-600 to-blue-600 hover:scale-105 cursor-pointer"
                 >
