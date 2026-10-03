@@ -126,6 +126,7 @@ const generateDeck = () => {
   addCards('skip', null, 8, 'Skip', 'bg-purple-600');
   addCards('reverse', null, 8, 'Reverse', 'bg-pink-600');
   addCards('draw', 2, 8, 'Draw 2+', 'bg-cyan-600');
+  addCards('draw', 4, 4, 'Draw 4+', 'bg-orange-600'); // 👈 이 줄을 추가하면 +4 카드 4장이 덱에 섞입니다!
   addCards('wild', null, 2, 'Wild (Undo x3)', 'bg-gradient-to-br from-purple-500 via-pink-500 to-red-500');
 
   return deck.sort(() => Math.random() - 0.5);
