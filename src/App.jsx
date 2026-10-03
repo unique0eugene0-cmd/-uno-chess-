@@ -63,13 +63,11 @@ const createSafeGame = (fen) => {
       const parts = fen.split(' ');
       const turn = parts[1] === 'b' ? 'b' : 'w';
       
-      // 🔥 [버그 수정 1] 앙파상 칸 기호 '-' 누락 수정 (정확한 6자리 FEN)
       try {
         game.load(`4k3/8/8/8/8/8/8/4K3 ${turn} - - 0 1`);
         game.remove('e1');
         game.remove('e8');
       } catch (err) {
-        // 엔진 버전에 따라 load가 거부될 경우를 대비한 완전 초기화
         game.clear(); 
       }
       
@@ -89,17 +87,13 @@ const createSafeGame = (fen) => {
         }
       }
 
-      // 강제로 턴 다시 세팅
       const currentFen = game.fen(); 
       const newParts = currentFen.split(' ');
       newParts[1] = turn;
       newParts[3] = '-'; 
       try { game.load(newParts.join(' ')); } catch {}
 
-    } catch (innerE) {
-      // 이제 이쪽으로 빠질 일이 거의 없음
-      // console.error('[Engine Override Failed]', innerE);
-    }
+    } catch (innerE) {}
   }
   return game;
 };
@@ -125,8 +119,8 @@ const generateDeck = () => {
   addCards('number', 100, 1, '100 Moves', 'bg-red-700');
   addCards('skip', null, 8, 'Skip', 'bg-purple-600');
   addCards('reverse', null, 8, 'Reverse', 'bg-pink-600');
-  addCards('draw', 2, 8, 'Draw 2+', 'bg-cyan-600');
-  addCards('draw', 4, 4, 'Draw 4+', 'bg-orange-600'); // 👈 이 줄을 추가하면 +4 카드 4장이 덱에 섞입니다!
+  addCards('draw', 2, 6, 'Draw 2+', 'bg-cyan-600');
+  addCards('draw', 4, 3, 'Draw 4+', 'bg-orange-600');
   addCards('wild', null, 2, 'Wild (Undo x3)', 'bg-gradient-to-br from-purple-500 via-pink-500 to-red-500');
 
   return deck.sort(() => Math.random() - 0.5);
@@ -275,7 +269,7 @@ const TutorialModal = ({ onClose }) => (
               <b className="text-pink-400">Reverse</b><br />체스판 시점이 반전되며 내가 반대 진영으로 한 번 더 행동합니다!
             </div>
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700">
-              <b className="text-cyan-400">Draw 2+</b><br />잡힌 기물을 포인트를 사용해 자신의 1~2랭크에 부활시킵니다.
+              <b className="text-cyan-400">Draw 2+ / 4+</b><br />포인트를 사용해 내 무덤의 기물을 1~2랭크에 부활시킵니다.
             </div>
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700">
               <b className="text-yellow-400">Wild</b><br />체크메이트 상황에서 최근 3개의 이동을 되돌립니다.
@@ -596,6 +590,7 @@ export default function App() {
     } catch (e) { console.error('[END TURN]', e); }
   }, [syncState]);
 
+  // 🔥 [버그 수정 2 완료] 오직 내 색상(colorOverride)에 해당하는 죽은 기물만 정확히 산출
   const getDeadPieces = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, colorOverride = stateRef.current.unoTurnColor) => {
     const currentGame = createSafeGame(currentFen);
     const currentCount = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
@@ -638,7 +633,7 @@ export default function App() {
 
   const finishRevive = useCallback((fenOverride = null) => {
     const current = stateRef.current;
-    if (!current.activeCard || current.activeCard.type !== 'draw') return;
+    if (!current.activeCard || (current.activeCard.type !== 'draw' && current.activeCard.type !== 'draw4')) return;
     const currentFen = fenOverride || current.fen;
     setSelectedRevivePiece(null);
     setRevivePoints(0);
@@ -677,7 +672,7 @@ export default function App() {
 
   const handleRevivePieceSelect = useCallback(type => {
     const current = stateRef.current;
-    if (!current.activeCard || current.activeCard.type !== 'draw' || current.revivePoints <= 0) return;
+    if (!current.activeCard || (current.activeCard.type !== 'draw') || current.revivePoints <= 0) return;
     if (!canControlCurrentTurn()) return;
 
     const deadPieces = getDeadPieces(current.fen, current.capturedTargets, current.unoTurnColor);
@@ -940,6 +935,7 @@ export default function App() {
     });
   }
 
+  // 🔥 [버그 수정 1 완료] 폰 프로모션 및 킹/퀸 포획 결함 완벽 해결
   const onDrop = useCallback((sourceSquare, targetSquare) => {
     const current = stateRef.current;
     if (current.gameOverMsg) return false;
@@ -955,7 +951,7 @@ export default function App() {
     let nextGame = currentGame;
     const remaining = current.movesRemaining - 1;
 
-    // 포획 처리 로직
+    // 특수 포획 처리 (킹 또는 퀸)
     if (targetPiece && targetPiece.color !== current.unoTurnColor && (targetPiece.type === 'k' || targetPiece.type === 'q')) {
       if (current.capturedTargets[targetPiece.color]?.[targetPiece.type]) {
         showToast(`이미 잡힌 ${PIECE_NAMES[targetPiece.type]}입니다.`, 'error');
@@ -978,7 +974,14 @@ export default function App() {
 
       currentGame.remove(targetSquare);
       currentGame.remove(sourceSquare);
-      currentGame.put({ type: piece.type, color: piece.color }, targetSquare);
+
+      // 폰이 끝 줄에서 잡으면서 승급(프로모션)하는 경우 처리
+      let placedType = piece.type;
+      if (piece.type === 'p' && (targetSquare[1] === '1' || targetSquare[1] === '8')) {
+        placedType = 'q';
+      }
+
+      currentGame.put({ type: placedType, color: piece.color }, targetSquare);
       nextGame = currentGame;
 
       let nextFen = nextGame.fen();
@@ -1019,17 +1022,16 @@ export default function App() {
       return true;
     }
 
-    // 일반 기물 이동
+    // 일반 기물 이동 (프로모션 포함)
     let move = null;
     try {
       move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
     } catch (e) {}
 
-    // 🔥 [버그 수정 2] 킹이 잡혀서 체스 엔진이 망가진 상태일 때 강제로 길 열어주기 (Phantom Move)
+    // Phantom Move 우회 처리
     if (!move) {
       const relaxed = createSafeGame(current.fen);
       
-      // 양쪽 킹을 모두 보드 밖 구석(더미 위치)으로 치워버려서 엔진을 속임
       for (let rank = 1; rank <= 8; rank++) {
         for (let file = 0; file < 8; file++) {
           const sq = String.fromCharCode(97 + file) + rank;
@@ -1044,12 +1046,11 @@ export default function App() {
       try {
         const candidate = relaxed.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         if (candidate) {
-          // 길이 열려있으면 원래 보드에서 강제로 순간이동!
           const mover = currentGame.get(sourceSquare);
           currentGame.remove(targetSquare);
           currentGame.remove(sourceSquare);
           if (mover.type === 'p' && (targetSquare[1] === '1' || targetSquare[1] === '8')) {
-            mover.type = 'q'; // 폰 승급 강제 적용
+            mover.type = 'q';
           }
           currentGame.put(mover, targetSquare);
           move = { from: sourceSquare, to: targetSquare };
@@ -1141,6 +1142,16 @@ export default function App() {
           }
           if (card.type === 'draw') {
             showToast(`AI 카드: Draw ${card.value}+`);
+            
+            const deadPieces = getDeadPieces(latest.fen, latest.capturedTargets, aiColor);
+            const affordable = deadPieces.filter(p => p.points <= card.value);
+            if (deadPieces.length === 0 || affordable.length === 0) {
+              showToast(`AI: +${card.value}P로 부활할 기물이 없어 1회 이동합니다.`);
+              setMovesRemaining(1);
+              syncState({ activeCard: card, movesRemaining: 1 });
+              return; 
+            }
+
             const newFen = handleAIRevive(card.value, latest.fen);
             await wait(450);
             endTurn(newFen);
@@ -1148,6 +1159,12 @@ export default function App() {
           }
           if (card.type === 'wild') {
             showToast('AI 카드: Wild');
+            const currentGame = createSafeGame(latest.fen);
+            if (!currentGame.isCheckmate()) {
+              handleWildCard(latest.fen, true);
+              return;
+            } 
+            
             const newFen = handleWildCard(latest.fen, true);
             await wait(1200);
             endTurn(newFen);
@@ -1162,7 +1179,6 @@ export default function App() {
           
           try { legalMoves = currentGame.moves({ verbose: true }); } catch(e){}
           
-          // 🔥 AI도 킹이 잡혀서 멍청해지는 것을 방지 (가상 보드로 강제 추출)
           if (legalMoves.length === 0) {
             const relaxed = createSafeGame(latest.fen);
             for (let r = 1; r <= 8; r++) {
@@ -1231,7 +1247,6 @@ export default function App() {
             currentGame.remove(move.from);
             currentGame.put(mover, move.to);
           } else {
-            // 엔진 우회 강제이동 (이것도 예외 방지를 위해 무조건 강제 적용)
             const mover = currentGame.get(move.from);
             currentGame.remove(move.to);
             currentGame.remove(move.from);
@@ -1291,11 +1306,8 @@ export default function App() {
     };
 
     executeAI();
-  }, [mode, fen, activeCard, movesRemaining, unoTurnColor, myColor, gameOverMsg, endTurn, handleAIRevive, handleWildCard, syncState, showToast]);
+  }, [mode, fen, activeCard, movesRemaining, unoTurnColor, myColor, gameOverMsg, endTurn, handleAIRevive, handleWildCard, syncState, showToast, getDeadPieces]);
 
-  /* =======================================================
-     리셋
-     ======================================================= */
   const resetGame = () => {
     const newGame = createSafeGame();
     const initialFen = newGame.fen();
@@ -1356,9 +1368,6 @@ export default function App() {
     setIsHost(false);
   };
 
-  /* =======================================================
-     MENU
-     ======================================================= */
   if (mode === 'menu') {
     return (
       <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center p-4">
@@ -1389,9 +1398,6 @@ export default function App() {
     );
   }
 
-  /* =======================================================
-     P2P LOBBY
-     ======================================================= */
   if (mode === 'p2p_lobby') {
     return (
       <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center p-4">
@@ -1448,9 +1454,6 @@ export default function App() {
     );
   }
 
-  /* =======================================================
-     GAME
-     ======================================================= */
   const deadPieces = getDeadPieces(fen, capturedTargets, unoTurnColor);
 
   return (
@@ -1476,7 +1479,6 @@ export default function App() {
         <div className="w-full max-w-[850px] flex-shrink-0 flex flex-col gap-4">
           <div className="flex flex-col xl:flex-row gap-4 items-stretch">
             
-            {/* GRAVEYARD */}
             <div className="w-full xl:w-[180px] bg-neutral-800 rounded-xl border border-neutral-700 shadow-xl p-3 flex-shrink-0">
               <div className="w-full mb-5 rounded-xl border border-neutral-700 bg-neutral-900/70 p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -1514,7 +1516,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* CHESSBOARD */}
             <div className="w-full max-w-[650px]">
               <div className={`p-3 sm:p-4 rounded-xl border text-center font-black text-lg sm:text-2xl tracking-wide shadow-lg mb-4 ${gameOverMsg ? 'bg-red-900/50 border-red-500 text-red-400' : 'bg-green-900/40 border-green-500 text-green-400'}`}>
                 {getStatusMessage()}
@@ -1537,7 +1538,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* UNO AREA */}
         <div className="w-full max-w-[400px] flex flex-col gap-4">
           <div className="bg-neutral-800 p-6 rounded-xl border border-neutral-700 shadow-xl flex flex-col items-center min-h-[500px]">
             <h2 className="text-xl font-bold mb-4 text-neutral-300 uppercase tracking-widest border-b border-neutral-700 pb-2 w-full text-center">UNO 덱</h2>
