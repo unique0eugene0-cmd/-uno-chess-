@@ -31,14 +31,15 @@ const generateDeck = () => {
   addCards('number', 1, 33, '1 Move', 'bg-blue-600');
   addCards('number', 2, 22, '2 Moves', 'bg-green-600');
   addCards('number', 3, 11, '3 Moves', 'bg-yellow-600');
-  addCards('number', 4, 5, '4 Moves', 'bg-orange-600');
+  // 4 이동 카드는 지나치게 강해 삭제했습니다. 100 이동 카드는 희귀한 초대형 카드로 유지합니다.
   addCards('number', 100, 1, '100 Moves', 'bg-red-700');
   
   addCards('skip', null, 8, 'Skip', 'bg-purple-600');
   addCards('reverse', null, 8, 'Reverse', 'bg-pink-600');
   addCards('draw', 2, 8, 'Draw 2+', 'bg-cyan-600');
   addCards('draw', 4, 4, 'Draw 4+', 'bg-teal-600');
-  addCards('wild', null, 4, 'Wild (Undo x5)', 'bg-gradient-to-br from-purple-500 via-pink-500 to-red-500');
+  // 와일드는 4장 -> 2장, 롤백도 5턴 -> 3턴으로 조정합니다.
+  addCards('wild', null, 2, 'Wild (Undo x3)', 'bg-gradient-to-br from-purple-500 via-pink-500 to-red-500');
   
   return deck.sort(() => Math.random() - 0.5);
 };
@@ -88,7 +89,7 @@ const TutorialModal = ({ onClose }) => (
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700 flex items-start gap-4">
               <span className="text-3xl">🔢</span>
               <div>
-                <strong className="text-white block mb-1 text-lg">숫자 카드 (1, 2, 3, 4, 100)</strong>
+                <strong className="text-white block mb-1 text-lg">숫자 카드 (1, 2, 3, 100)</strong>
                 나온 숫자만큼 내 체스말을 <span className="text-green-400 font-bold">연속으로</span> 움직일 수 있습니다.
               </div>
             </div>
@@ -117,7 +118,7 @@ const TutorialModal = ({ onClose }) => (
               <span className="text-3xl text-yellow-400"><Undo2 size={32}/></span>
               <div>
                 <strong className="text-white block mb-1 text-lg">와일드 (Wild)</strong>
-                체크메이트 위기이거나 킹을 잡을 수 있는 상황에 발동하여 <span className="text-yellow-400 font-bold">시간을 5턴 전으로 되돌립니다.</span>
+                체크메이트 위기이거나 킹을 잡을 수 있는 상황에 발동하여 <span className="text-yellow-400 font-bold">시간을 3턴 전으로 되돌립니다.</span>
               </div>
             </div>
           </div>
@@ -126,7 +127,7 @@ const TutorialModal = ({ onClose }) => (
         <section>
           <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">👑 승리 조건</h3>
           <p className="bg-red-900/30 text-red-100 p-4 rounded-xl border border-red-500/50 leading-relaxed font-semibold text-lg">
-            체크메이트를 달성하거나, <strong className="text-red-400 text-2xl ml-1">상대방의 킹을 직접 드래그&드롭으로 잡으면 즉시 승리</strong>합니다!
+            상대방의 <strong className="text-red-400">킹과 퀸을 모두 잡으면</strong> 승리합니다. 체크메이트 자체는 게임 종료 조건이 아닙니다!
           </p>
         </section>
       </div>
@@ -165,6 +166,15 @@ export default function App() {
   
   const [toast, setToast] = useState({ msg: '', type: 'info' });
   const [gameOverMsg, setGameOverMsg] = useState('');
+  // 각 진영의 킹/퀸이 잡혔는지 기록합니다.
+  const [capturedTargets, setCapturedTargets] = useState({
+    w: { k: false, q: false },
+    b: { k: false, q: false }
+  });
+  const [captureHistory, setCaptureHistory] = useState(() => [{
+    w: { k: false, q: false },
+    b: { k: false, q: false }
+  }]);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
@@ -173,10 +183,10 @@ export default function App() {
   const peerRef = useRef(null);
   const connRef = useRef(null);
 
-  const stateRef = useRef({ fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation });
+  const stateRef = useRef({ fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation, capturedTargets });
   useEffect(() => {
-    stateRef.current = { fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation };
-  }, [fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation]);
+    stateRef.current = { fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation, capturedTargets };
+  }, [fen, activeCard, movesRemaining, unoTurnColor, deck, gameOverMsg, boardOrientation, capturedTargets]);
 
   const showToast = useCallback((msg, type = 'info') => setToast({ msg, type }), []);
 
@@ -317,6 +327,8 @@ export default function App() {
         if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
         if (data.boardOrientation) setBoardOrientation(data.boardOrientation);
         setGameOverMsg('');
+        setCapturedTargets(data.capturedTargets || { w: { k: false, q: false }, b: { k: false, q: false } });
+        setCaptureHistory([data.capturedTargets || { w: { k: false, q: false }, b: { k: false, q: false } }]);
         setActiveCard(null);
         setMovesRemaining(0);
         setMode('p2p');
@@ -325,25 +337,12 @@ export default function App() {
       }
 
       if (data.type === 'REVERSE') {
-        // 리버스: 화면만 뒤집는 것이 아니라 실제 플레이어의 진영도 교체합니다.
-        // sender가 보낸 playerColor는 'sender가 리버스 후 가지게 된 색'입니다.
-        setBoardOrientation(data.boardOrientation || (prev => prev === 'white' ? 'black' : 'white'));
-        if (data.playerColor) {
-          setMyColor(data.playerColor === 'w' ? 'b' : 'w');
-        } else {
-          setMyColor(prev => prev === 'w' ? 'b' : 'w');
-        }
+        // 상대방도 자기 진영/시점을 반대로 뒤집습니다.
+        setBoardOrientation(prev => prev === 'white' ? 'black' : 'white');
+        setMyColor(prev => prev === 'w' ? 'b' : 'w');
         if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
-        if (data.fen) {
-          try {
-            const newGame = new Chess();
-            newGame.load(data.fen);
-            setGame(newGame);
-            setFen(data.fen);
-          } catch (e) {
-            console.error('[P2P] REVERSE FEN 오류:', e);
-          }
-        }
+        setActiveCard(data.activeCard || null);
+        setMovesRemaining(0);
         return;
       }
 
@@ -360,6 +359,7 @@ export default function App() {
           if (data.unoTurnColor !== undefined) setUnoTurnColor(data.unoTurnColor);
           if (data.deck !== undefined) setDeck(data.deck);
           if (data.gameOverMsg !== undefined) setGameOverMsg(data.gameOverMsg);
+          if (data.capturedTargets !== undefined) setCapturedTargets(data.capturedTargets);
           if (data.toast) showToast(data.toast);
         } catch (e) {
           console.error('[P2P] SYNC 오류:', e);
@@ -397,6 +397,7 @@ export default function App() {
         unoTurnColor: overrides.unoTurnColor !== undefined ? overrides.unoTurnColor : current.unoTurnColor,
         deck: overrides.deck !== undefined ? overrides.deck : current.deck,
         gameOverMsg: overrides.gameOverMsg !== undefined ? overrides.gameOverMsg : current.gameOverMsg,
+        capturedTargets: overrides.capturedTargets !== undefined ? overrides.capturedTargets : current.capturedTargets,
         boardOrientation: overrides.boardOrientation !== undefined ? overrides.boardOrientation : current.boardOrientation,
         toast: overrides.toast !== undefined ? overrides.toast : ''
       });
@@ -417,6 +418,9 @@ export default function App() {
     setMovesRemaining(0);
     setUnoTurnColor('w');
     setGameOverMsg('');
+    const initialCaptured = { w: { k: false, q: false }, b: { k: false, q: false } };
+    setCapturedTargets(initialCaptured);
+    setCaptureHistory([initialCaptured]);
     setBoardOrientation('black'); // 방장은 흑색 시점
     setMode('p2p');
 
@@ -426,7 +430,8 @@ export default function App() {
       fen: initialFen,
       deck: initialDeck,
       unoTurnColor: 'w',
-      boardOrientation: 'white' // 접속자는 백색 시점
+      boardOrientation: 'white', // 접속자는 백색 시점
+      capturedTargets: initialCaptured
     });
   };
 
@@ -555,42 +560,41 @@ export default function App() {
   const handleWildCard = useCallback((currentFen) => {
     const currentGame = new Chess(currentFen);
     const isMated = currentGame.isCheckmate();
-    let canMate = false;
-    const moves = currentGame.moves({ verbose: true });
-    for (let m of moves) {
-      const temp = new Chess(currentGame.fen());
-      temp.move(m);
-      if (temp.isCheckmate()) { canMate = true; break; }
-    }
 
-    if (isMated || canMate) {
-      showToast("와일드! 5턴 전으로 되돌립니다!", "info");
+    if (isMated) {
+      showToast("와일드! 3턴 전으로 되돌립니다!", "info");
       let newFen = currentFen;
       const historyCopy = [...fenHistory];
-      for (let i = 0; i < 5; i++) {
+      const captureHistoryCopy = [...captureHistory];
+
+      for (let i = 0; i < 3; i++) {
         if (historyCopy.length > 1) {
           historyCopy.pop();
           newFen = historyCopy[historyCopy.length - 1];
         }
+        if (captureHistoryCopy.length > 1) captureHistoryCopy.pop();
       }
-      const newGame = new Chess();
-      newGame.load(newFen);
+
+      const restoredTargets = captureHistoryCopy[captureHistoryCopy.length - 1] || { w: { k: false, q: false }, b: { k: false, q: false } };
+      const newGame = new Chess(newFen);
       setGame(newGame);
       setFen(newFen);
       setFenHistory(historyCopy);
-      syncState({ fen: newFen, toast: "와일드카드로 5턴 전으로 롤백되었습니다!" });
-      setTimeout(() => endTurn(newFen), 2500);
+      setCaptureHistory(captureHistoryCopy);
+      setCapturedTargets(restoredTargets);
+      syncState({ fen: newFen, capturedTargets: restoredTargets, toast: "와일드카드로 3턴 전으로 롤백되었습니다!" });
+      setTimeout(() => endTurn(newFen), 1800);
     } else {
-      showToast("조건 불충족! 체스말을 2회 움직입니다.", "info");
+      showToast("와일드! 체크메이트 위기에서만 3턴 롤백이 가능합니다.", "info");
       setMovesRemaining(2);
       syncState({ movesRemaining: 2 });
     }
-  }, [fenHistory, endTurn, showToast, syncState]);
+  }, [fenHistory, captureHistory, endTurn, showToast, syncState]);
 
   const handleDrawCard = useCallback(() => {
     if (gameOverMsg || activeCard) return;
 
-    if (mode === 'p2p' && unoTurnColor !== myColor) {
+    if ((mode === 'p2p' || mode === 'ai') && unoTurnColor !== myColor) {
       showToast("상대방의 턴입니다.", "error");
       return;
     }
@@ -603,7 +607,6 @@ export default function App() {
 
     let currentDeck = [...deck];
     if (currentDeck.length === 0) currentDeck = generateDeck();
-
     const card = currentDeck.pop();
 
     setDeck(currentDeck);
@@ -611,78 +614,35 @@ export default function App() {
 
     if (card.type === 'number') {
       setMovesRemaining(card.value);
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: card.value
-      });
-    }
-    else if (card.type === 'skip') {
+      syncState({ activeCard: card, deck: currentDeck, movesRemaining: card.value });
+    } else if (card.type === 'skip') {
       setMovesRemaining(0);
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0
-      });
+      syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
       showToast("스킵! 턴이 넘어갑니다.");
-      setTimeout(() => endTurn(fen), 1200);
-    }
-    else if (card.type === 'reverse') {
-      // 2인 게임에서 리버스는 상대와 진영을 맞바꾸고 턴을 상대에게 넘깁니다.
-      // 중요: endTurn()을 호출하면 체스 FEN의 턴 색까지 한 번 더 뒤집혀서
-      // 진영 교체 후 턴이 꼬이므로, 현재 FEN의 active color는 그대로 유지합니다.
+      setTimeout(() => endTurn(stateRef.current.fen), 1200);
+    } else if (card.type === 'reverse') {
+      // 2인 UNO에서 리버스는 진영/시점을 서로 뒤집고, 현재 색의 턴을 상대방에게 넘깁니다.
       const newOrient = boardOrientation === 'white' ? 'black' : 'white';
       const newColor = myColor === 'w' ? 'b' : 'w';
-
       setBoardOrientation(newOrient);
-      setMyColor(newColor);
+      if (mode === 'p2p') setMyColor(newColor);
       setMovesRemaining(0);
 
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0,
-        unoTurnColor,
-        boardOrientation: newOrient
-      });
+      syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0, unoTurnColor });
+      sendMessage({ type: 'REVERSE', boardOrientation: newOrient, myColor: newColor, unoTurnColor, activeCard: card });
+      showToast("리버스! 진영과 시점이 180도 뒤집혔습니다!", "info");
 
-      sendMessage({
-        type: 'REVERSE',
-        playerColor: newColor,
-        unoTurnColor,
-        boardOrientation: newOrient,
-        fen
-      });
-
-      showToast("리버스! 나와 상대의 진영과 시점이 180도 뒤집혔습니다!", "info");
-
-      // 현재 턴 색은 유지합니다. 색의 주인이 서로 바뀌었기 때문에
-      // 결과적으로 턴은 상대방에게 넘어갑니다.
+      // FEN의 턴 색은 유지합니다. 진영이 교체되었기 때문에 같은 색을 상대가 조종하게 됩니다.
       setTimeout(() => {
         setActiveCard(null);
         setMovesRemaining(0);
-        syncState({
-          activeCard: null,
-          movesRemaining: 0,
-          unoTurnColor,
-          boardOrientation: newOrient
-        });
+        syncState({ activeCard: null, movesRemaining: 0, unoTurnColor });
       }, 1200);
-    }
-    else if (card.type === 'draw') {
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0
-      });
+    } else if (card.type === 'draw') {
+      syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
       handleRevive(card.value, fen);
-    }
-    else if (card.type === 'wild') {
-      syncState({
-        activeCard: card,
-        deck: currentDeck,
-        movesRemaining: 0
-      });
+    } else if (card.type === 'wild') {
+      syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
       handleWildCard(fen);
     }
   }, [deck, gameOverMsg, activeCard, fen, unoTurnColor, myColor, mode, boardOrientation, endTurn, handleRevive, handleWildCard, showToast, syncState, sendMessage]);
@@ -690,67 +650,98 @@ export default function App() {
   const onDrop = (sourceSquare, targetSquare) => {
     if (gameOverMsg) return false;
 
-    if (mode === 'p2p' && unoTurnColor !== myColor) {
+    if ((mode === 'p2p' || mode === 'ai') && unoTurnColor !== myColor) {
       showToast("상대방의 턴입니다.", "error");
       return false;
     }
 
-    if (!activeCard) {
-      showToast("먼저 우노 덱에서 카드를 뽑으세요!", "error");
-      return false;
-    }
-
-    if (movesRemaining <= 0) return false;
+    if (!activeCard || movesRemaining <= 0) return false;
 
     const currentGame = new Chess(fen);
     const piece = currentGame.get(sourceSquare);
-
     if (!piece || piece.color !== unoTurnColor) {
       showToast("현재 턴인 진영의 말만 움직일 수 있습니다!", "error");
       return false;
     }
 
     const targetPiece = currentGame.get(targetSquare);
-    if (targetPiece && targetPiece.type === 'k' && targetPiece.color !== unoTurnColor) {
-      try {
-        const legalMoves = currentGame.moves({ square: sourceSquare, verbose: true });
-        const canCaptureKing = legalMoves.some(move => move.to === targetSquare);
-
-        if (!canCaptureKing) return false;
-
-        const winnerMsg = "킹을 잡았습니다! 승리!";
-        const loserMsg = "킹을 잡혔습니다! 패배!";
-        setGameOverMsg(winnerMsg);
-        syncState({ gameOverMsg: winnerMsg, toast: loserMsg });
-        return true;
-      } catch (e) {
+    if (targetPiece && targetPiece.color !== unoTurnColor && (targetPiece.type === 'k' || targetPiece.type === 'q')) {
+      if (capturedTargets[targetPiece.color]?.[targetPiece.type]) {
+        showToast(`이미 잡힌 ${targetPiece.type === 'k' ? '킹' : '퀸'}입니다.`, 'error');
         return false;
       }
+      // 킹은 체스 엔진의 '킹 캡처 불가' 규칙 때문에 실제 FEN에서 제거하지 않고,
+      // 승리 판정용 기록만 남깁니다. 퀸은 일반 체스 캡처로 제거합니다.
+      let canCapture = false;
+      try {
+        if (targetPiece.type === 'k') {
+          const test = new Chess(currentGame.fen());
+          test.remove(targetSquare);
+          test.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+          canCapture = true;
+        } else {
+          const legalMoves = currentGame.moves({ square: sourceSquare, verbose: true });
+          canCapture = legalMoves.some(move => move.to === targetSquare);
+        }
+      } catch (e) {
+        canCapture = false;
+      }
+
+      if (!canCapture) return false;
+
+      const nextCaptured = {
+        w: { ...capturedTargets.w },
+        b: { ...capturedTargets.b }
+      };
+      nextCaptured[targetPiece.color][targetPiece.type] = true;
+
+      let nextGame = currentGame;
+      if (targetPiece.type === 'q') {
+        const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+        if (!move) return false;
+        nextGame = currentGame;
+      }
+
+      const newMovesRemaining = movesRemaining - 1;
+      const newFen = nextGame.fen();
+      const targetName = targetPiece.type === 'k' ? '킹' : '퀸';
+
+      setCapturedTargets(nextCaptured);
+      setCaptureHistory(prev => [...prev, nextCaptured]);
+      setGame(nextGame);
+      setFen(newFen);
+      setFenHistory(prev => [...prev, newFen]);
+      setMovesRemaining(newMovesRemaining);
+
+      const opponent = targetPiece.color;
+      const hasWon = nextCaptured[opponent].k && nextCaptured[opponent].q;
+      if (hasWon) {
+        const winnerMsg = `상대방의 킹과 퀸을 모두 잡았습니다! 승리!`;
+        setGameOverMsg(winnerMsg);
+        syncState({ gameOverMsg: winnerMsg, capturedTargets: nextCaptured, movesRemaining: 0, toast: `상대방의 ${targetName}을 잡았습니다.` });
+        return true;
+      }
+
+      showToast(`${targetName}을 잡았습니다! ${targetName === '킹' ? '퀸도 잡아야 승리합니다.' : '킹도 잡아야 승리합니다.'}`);
+      if (newMovesRemaining > 0) forceKeepTurn(newFen);
+      else endTurn(newFen);
+      syncState({ capturedTargets: nextCaptured });
+      return true;
     }
 
     try {
-      const move = currentGame.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: 'q'
-      });
-
+      const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
       if (move === null) return false;
 
       const newMovesRemaining = movesRemaining - 1;
       const newFen = currentGame.fen();
-
       setMovesRemaining(newMovesRemaining);
       setGame(currentGame);
       setFen(newFen);
       setFenHistory(prev => [...prev, newFen]);
-
-      if (newMovesRemaining > 0) {
-        forceKeepTurn(newFen);
-      } else {
-        endTurn(newFen);
-      }
-
+      setCaptureHistory(prev => [...prev, capturedTargets]);
+      if (newMovesRemaining > 0) forceKeepTurn(newFen);
+      else endTurn(newFen);
       return true;
     } catch (e) {
       return false;
@@ -758,103 +749,129 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (mode !== 'ai' || gameOverMsg) return;
-
-    // AI는 항상 'myColor의 반대편' 진영을 조종합니다.
-    // 리버스로 진영이 바뀌면 AI도 자동으로 백/흑이 바뀝니다.
     const aiColor = myColor === 'w' ? 'b' : 'w';
+    if (mode !== 'ai' || gameOverMsg || unoTurnColor !== aiColor || isTransitioning.current) return;
 
-    if (unoTurnColor === aiColor && !isTransitioning.current) {
-      isTransitioning.current = true;
-      
-      if (!activeCard) {
-        setTimeout(() => {
-          let currentDeck = [...deck];
+    isTransitioning.current = true;
+    const timer = setTimeout(() => {
+      const current = stateRef.current;
+
+      try {
+        // AI가 아직 카드를 뽑지 않았다면 먼저 카드를 뽑습니다.
+        if (!current.activeCard) {
+          let currentDeck = Array.isArray(current.deck) ? [...current.deck] : [];
           if (currentDeck.length === 0) currentDeck = generateDeck();
           const card = currentDeck.pop();
+
           setDeck(currentDeck);
           setActiveCard(card);
-          
+          syncState({ activeCard: card, deck: currentDeck, movesRemaining: card.type === 'number' ? card.value : 0 });
+
           if (card.type === 'number') {
             setMovesRemaining(card.value);
-            isTransitioning.current = false; 
+            showToast(`AI 카드: ${card.name}`);
           } else if (card.type === 'skip') {
-            showToast(`AI 카드: Skip`);
-            setTimeout(() => { endTurn(fen); isTransitioning.current = false; }, 1500);
-          } else if (card.type === 'reverse') {
-            showToast(`AI 카드: Reverse`);
-            const newOrient = boardOrientation === 'white' ? 'black' : 'white';
-            const newPlayerColor = myColor === 'w' ? 'b' : 'w';
-
-            setBoardOrientation(newOrient);
-            setMyColor(newPlayerColor);
-            setMovesRemaining(0);
-
-            // FEN의 active color는 그대로 유지합니다.
-            // 진영의 주인이 바뀌었으므로 같은 색의 턴이 상대에게 넘어갑니다.
+            showToast('AI 카드: Skip');
             setTimeout(() => {
               setActiveCard(null);
               setMovesRemaining(0);
+              safelyPassTurn(stateRef.current.fen);
               isTransitioning.current = false;
-            }, 1500);
+            }, 900);
+            return;
+          } else if (card.type === 'reverse') {
+            showToast('AI 카드: Reverse');
+            setBoardOrientation(prev => prev === 'white' ? 'black' : 'white');
+            setMyColor(prev => prev === 'w' ? 'b' : 'w');
+            // AI 모드에서도 진영이 뒤집히지만 AI는 계속 흑색 진영을 담당하도록 게임 로직은 유지합니다.
+            setTimeout(() => {
+              // 진영이 바뀌었으므로 FEN의 현재 색은 그대로 두고 상대에게 넘깁니다.
+              setActiveCard(null);
+              setMovesRemaining(0);
+              syncState({ activeCard: null, movesRemaining: 0, unoTurnColor: stateRef.current.unoTurnColor });
+              isTransitioning.current = false;
+            }, 900);
+            return;
           } else if (card.type === 'draw') {
             showToast(`AI 카드: Draw ${card.value}+`);
-            handleRevive(card.value, fen);
+            handleRevive(card.value, current.fen);
             isTransitioning.current = false;
+            return;
           } else if (card.type === 'wild') {
-            showToast(`AI 카드: Wild`);
-            handleWildCard(fen);
+            showToast('AI 카드: Wild');
+            handleWildCard(current.fen);
             isTransitioning.current = false;
+            return;
           }
-        }, 1000);
-      }
-      else if (activeCard && movesRemaining > 0) {
-        setTimeout(() => {
-          const currentGame = new Chess(fen);
-          const possibleMoves = currentGame.moves({ verbose: true });
-          const aiMoves = possibleMoves.filter(m => currentGame.get(m.from)?.color === aiColor);
-          if (aiMoves.length > 0) {
-            const move = aiMoves[Math.floor(Math.random() * aiMoves.length)];
-            currentGame.move(move);
-            const newFen = currentGame.fen();
-            setGame(currentGame);
-            setFen(newFen);
-            setFenHistory(prev => [...prev, newFen]);
-            
-            if (movesRemaining - 1 > 0) {
-              // chess.js는 말을 한 번 움직이면 자동으로 active color를 반대편으로 바꿉니다.
-              // UNO의 연속 이동 규칙에서는 같은 색이 계속 움직여야 하므로
-              // FEN의 active color를 AI 진영으로 되돌립니다.
-              const remaining = movesRemaining - 1;
-              const parts = newFen.split(' ');
-              parts[1] = aiColor;
-              parts[3] = '-';
-              const continueFen = parts.join(' ');
 
-              try {
-                const continueGame = new Chess();
-                continueGame.load(continueFen);
-                setGame(continueGame);
-                setFen(continueFen);
-                setMovesRemaining(remaining);
-                setFenHistory(prev => [...prev, continueFen]);
-              } catch (e) {
-                console.error('[AI] 연속 이동 FEN 처리 오류:', e);
-                endTurn(newFen);
-              }
-              isTransitioning.current = false;
-            } else {
-              endTurn(newFen);
-              isTransitioning.current = false;
-            }
-          } else {
-             endTurn(fen);
-             isTransitioning.current = false;
+          isTransitioning.current = false;
+          return;
+        }
+
+        if (current.activeCard.type === 'number' && current.movesRemaining > 0) {
+          const currentGame = new Chess(current.fen);
+          const possibleMoves = currentGame.moves({ verbose: true });
+          if (possibleMoves.length === 0) {
+            setActiveCard(null);
+            setMovesRemaining(0);
+            safelyPassTurn(current.fen);
+            isTransitioning.current = false;
+            return;
           }
-        }, 1200);
+
+          const move = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+          const targetPiece = currentGame.get(move.to);
+          const moverColor = currentGame.get(move.from)?.color;
+          if (moverColor !== aiColor) {
+            // 혹시 FEN의 턴이 백으로 뒤집혔으면 AI 턴으로 강제 복구합니다.
+            forceKeepTurn(current.fen);
+            isTransitioning.current = false;
+            return;
+          }
+
+          // AI도 킹/퀸을 잡았는지 기록합니다. 킹 캡처는 엔진 특성상 직접 제거하지 않습니다.
+          let nextCaptured = { w: { ...current.capturedTargets.w }, b: { ...current.capturedTargets.b } };
+          if (targetPiece && targetPiece.color === 'w' && (targetPiece.type === 'k' || targetPiece.type === 'q')) {
+            nextCaptured.w[targetPiece.type] = true;
+          }
+
+          currentGame.move(move);
+          const newFen = currentGame.fen();
+          const remaining = current.movesRemaining - 1;
+
+          setGame(currentGame);
+          setFen(newFen);
+          setFenHistory(prev => [...prev, newFen]);
+          setCapturedTargets(nextCaptured);
+          setCaptureHistory(prev => [...prev, nextCaptured]);
+
+          if (nextCaptured.w.k && nextCaptured.w.q) {
+            const msg = 'AI가 당신의 킹과 퀸을 모두 잡았습니다! 패배!';
+            setGameOverMsg(msg);
+            setMovesRemaining(0);
+            setActiveCard(null);
+            syncState({ gameOverMsg: msg, capturedTargets: nextCaptured, movesRemaining: 0, activeCard: null });
+          } else if (remaining > 0) {
+            setMovesRemaining(remaining);
+            // chess.js는 방금 움직인 뒤 백 턴으로 바꾸므로 AI의 연속 이동을 위해 흑 턴으로 복구합니다.
+            forceKeepTurn(newFen);
+          } else {
+            endTurn(newFen);
+          }
+        } else {
+          isTransitioning.current = false;
+          return;
+        }
+      } catch (e) {
+        console.error('[AI] 턴 처리 오류:', e);
+        isTransitioning.current = false;
       }
-    }
-  }, [unoTurnColor, activeCard, movesRemaining, mode, gameOverMsg, deck, fen, endTurn, handleRevive, handleWildCard, showToast, boardOrientation, myColor]);
+
+      isTransitioning.current = false;
+    }, current.activeCard ? 900 : 1000);
+
+    return () => clearTimeout(timer);
+  }, [mode, gameOverMsg, unoTurnColor, activeCard, movesRemaining, fen, deck, boardOrientation, handleRevive, handleWildCard, forceKeepTurn, endTurn, safelyPassTurn, syncState, showToast, myColor]);
 
   const resetGame = () => {
     const newGame = new Chess();
@@ -872,13 +889,17 @@ export default function App() {
     }
     setUnoTurnColor('w');
     setGameOverMsg('');
+    const emptyCaptured = { w: { k: false, q: false }, b: { k: false, q: false } };
+    setCapturedTargets(emptyCaptured);
+    setCaptureHistory([emptyCaptured]);
     if (connRef.current?.open) {
       syncState({
         fen: newGame.fen(),
         unoTurnColor: 'w',
         activeCard: null,
         movesRemaining: 0,
-        gameOverMsg: ''
+        gameOverMsg: '',
+        capturedTargets: emptyCaptured
       });
     }
   };
@@ -886,7 +907,7 @@ export default function App() {
   const getStatusMessage = () => {
     if (gameOverMsg) return gameOverMsg;
     const currentGame = new Chess(fen);
-    if (currentGame.isCheckmate()) return "체크메이트! 게임 종료.";
+    if (currentGame.isCheckmate()) return "체크메이트 상태 — 킹과 퀸을 모두 잡아야 승리합니다.";
     const turnName = unoTurnColor === 'w' ? '백색 (White)' : '흑색 (Black)';
     if (currentGame.isCheck()) return `체크! ${turnName} 턴`;
     return `${turnName} 턴`;
