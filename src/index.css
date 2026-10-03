@@ -1,536 +1,931 @@
-// =========================================================
-// 체스닷컴풍 커스텀 기물
-// =========================================================
+@import "tailwindcss";
 
-const ChessPieceSVG = ({
-  type,
-  color,
-  squareWidth = 80
-}) => {
-  const isWhite = color === 'w';
+/* =========================================================
+   UNO CHESS — GLOBAL
+   ========================================================= */
 
-  const fill = isWhite ? '#f4f1e8' : '#262522';
-  const stroke = isWhite ? '#d0ccc3' : '#11110f';
-  const highlight = isWhite ? '#ffffff' : '#4a4945';
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
 
-  const scale = squareWidth / 80;
+html {
+  background: #171717;
+}
 
-  const common = {
-    width: squareWidth,
-    height: squareWidth,
-    viewBox: '0 0 80 80',
-    xmlns: 'http://www.w3.org/2000/svg',
-    style: {
-      display: 'block',
-      overflow: 'visible',
-      filter: isWhite
-        ? 'drop-shadow(0 2px 2px rgba(0,0,0,.35))'
-        : 'drop-shadow(0 2px 2px rgba(0,0,0,.55))'
-    }
-  };
+body {
+  background:
+    radial-gradient(
+      circle at 50% -10%,
+      rgba(255, 255, 255, 0.045),
+      transparent 38%
+    ),
+    #171717;
 
-  // ---------------------------------------------------------
-  // 킹
-  // ---------------------------------------------------------
-  if (type === 'k') {
-    return (
-      <svg {...common}>
-        <g transform={`scale(${scale})`}>
-          {/* 십자가 */}
-          <path
-            d="M36 8h8v7h7v8h-7v7h-8v-7h-7v-8h7z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
+  color: #e5e5e5;
 
-          {/* 왕관 머리 */}
-          <path
-            d="M29 31
-               C29 27 32 24 36 23
-               H44
-               C48 24 51 27 51 31
-               L49 37
-               H31Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.5"
-          />
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 
-          {/* 목 */}
-          <path
-            d="M32 35 L48 35 L50 42 L30 42 Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.5"
-          />
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 
-          {/* 몸통 */}
-          <path
-            d="M30 41
-               C30 47 26 52 22 57
-               C19 61 18 65 18 68
-               H62
-               C62 65 61 61 58 57
-               C54 52 50 47 50 41
-               Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
+  overflow-x: hidden;
+}
 
-          {/* 베이스 */}
-          <path
-            d="M14 68
-               C14 65 17 63 21 63
-               H59
-               C63 63 66 65 66 68
-               L68 72
-               H12Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+/* =========================================================
+   GLOBAL RESET
+   ========================================================= */
 
-          {/* 하이라이트 */}
-          {isWhite && (
-            <path
-              d="M25 48 C28 43 31 39 34 37"
-              fill="none"
-              stroke={highlight}
-              strokeWidth="3"
-              strokeLinecap="round"
-              opacity=".7"
-            />
-          )}
-        </g>
-      </svg>
-    );
-  }
+* {
+  box-sizing: border-box;
+}
 
-  // ---------------------------------------------------------
-  // 퀸
-  // ---------------------------------------------------------
-  if (type === 'q') {
-    return (
-      <svg {...common}>
-        <g transform={`scale(${scale})`}>
-          {/* 왕관 */}
-          <path
-            d="M19 30
-               L23 17
-               L31 25
-               L40 13
-               L49 25
-               L57 17
-               L61 30
-               L56 36
-               H24Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.7"
-            strokeLinejoin="round"
-          />
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-          {/* 왕관 보석 */}
-          <circle
-            cx="23"
-            cy="17"
-            r="2.5"
-            fill={highlight}
-          />
-          <circle
-            cx="40"
-            cy="13"
-            r="2.5"
-            fill={highlight}
-          />
-          <circle
-            cx="57"
-            cy="17"
-            r="2.5"
-            fill={highlight}
-          />
+button {
+  -webkit-tap-highlight-color: transparent;
+}
 
-          {/* 목 */}
-          <path
-            d="M29 34 H51 L49 42 H31Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.5"
-          />
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 2px;
+}
 
-          {/* 몸통 */}
-          <path
-            d="M31 41
-               C31 47 27 52 23 57
-               C20 61 19 65 19 68
-               H61
-               C61 65 60 61 57 57
-               C53 52 49 47 49 41
-               Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+/* =========================================================
+   TEXT SELECTION
+   ========================================================= */
 
-          {/* 베이스 */}
-          <path
-            d="M14 68
-               C14 65 17 63 21 63
-               H59
-               C63 63 66 65 66 68
-               L68 72
-               H12Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+::selection {
+  background: rgba(250, 204, 21, 0.35);
+  color: #ffffff;
+}
 
-          {isWhite && (
-            <path
-              d="M27 48 C30 43 33 39 36 37"
-              fill="none"
-              stroke={highlight}
-              strokeWidth="3"
-              strokeLinecap="round"
-              opacity=".7"
-            />
-          )}
-        </g>
-      </svg>
-    );
-  }
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
 
-  // ---------------------------------------------------------
-  // 룩
-  // ---------------------------------------------------------
-  if (type === 'r') {
-    return (
-      <svg {...common}>
-        <g transform={`scale(${scale})`}>
-          {/* 성벽 */}
-          <path
-            d="M22 30
-               V18
-               H29
-               V24
-               H35
-               V18
-               H45
-               V24
-               H51
-               V18
-               H58
-               V30
-               L54 35
-               H26Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-          {/* 몸통 */}
-          <path
-            d="M28 33 H52
-               L50 43
-               C50 48 54 54 58 59
-               C61 63 62 66 62 68
-               H18
-               C18 66 19 63 22 59
-               C26 54 30 48 30 43
-               Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+::-webkit-scrollbar-track {
+  background: #171717;
+}
 
-          {/* 베이스 */}
-          <path
-            d="M14 68
-               H66
-               L68 72
-               H12Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
-        </g>
-      </svg>
-    );
-  }
+::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 999px;
+}
 
-  // ---------------------------------------------------------
-  // 비숍
-  // ---------------------------------------------------------
-  if (type === 'b') {
-    return (
-      <svg {...common}>
-        <g transform={`scale(${scale})`}>
-          {/* 머리 */}
-          <path
-            d="M40 12
-               C33 15 28 21 29 28
-               C30 34 35 37 36 40
-               L31 46
-               H49
-               L44 40
-               C45 37 50 34 51 28
-               C52 21 47 15 40 12Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
 
-          {/* 비숍 특유의 대각선 */}
-          <path
-            d="M45 19 L35 34"
-            stroke={isWhite ? '#aaa69f' : '#11110f'}
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
+/* =========================================================
+   SCROLLBAR — FIREFOX
+   ========================================================= */
 
-          {/* 몸통 */}
-          <path
-            d="M31 44
-               C31 50 27 54 23 59
-               C20 63 19 66 19 68
-               H61
-               C61 66 60 63 57 59
-               C53 54 49 50 49 44
-               Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #404040 #171717;
+}
 
-          {/* 베이스 */}
-          <path
-            d="M14 68
-               H66
-               L68 72
-               H12Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
-        </g>
-      </svg>
-    );
-  }
+/* =========================================================
+   UNO CHESS — BUTTON BASE
+   ========================================================= */
 
-  // ---------------------------------------------------------
-  // 나이트
-  // ---------------------------------------------------------
-  if (type === 'n') {
-    return (
-      <svg {...common}>
-        <g transform={`scale(${scale})`}>
-          {/* 말 머리 */}
-          <path
-            d="M27 66
-               C25 58 27 51 32 46
-               C35 42 34 38 32 34
-               C29 29 30 22 35 16
-               C41 9 51 10 57 15
-               C53 18 49 21 48 25
-               C54 28 57 34 55 41
-               C53 49 48 53 47 58
-               C46 62 49 65 52 68
-               H27Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
+button {
+  border: 0;
+  cursor: pointer;
+  user-select: none;
 
-          {/* 귀 */}
-          <path
-            d="M36 16 L37 8 L44 16"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
 
-          {/* 갈기 */}
-          <path
-            d="M33 25
-               C38 21 43 19 49 19
-               C45 23 44 27 47 30
-               C42 29 37 28 33 25Z"
-            fill={highlight}
-            opacity=".5"
-          />
+button:disabled {
+  cursor: not-allowed;
+}
 
-          {/* 눈 */}
-          <circle
-            cx="47"
-            cy="27"
-            r="1.7"
-            fill={isWhite ? '#555' : '#ddd'}
-          />
+/* =========================================================
+   UNO CHESS — CARD / PANEL
+   ========================================================= */
 
-          {/* 베이스 */}
-          <path
-            d="M20 66
-               H57
-               C61 66 64 68 65 72
-               H15
-               C16 69 18 67 20 66Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth="1.8"
-          />
-        </g>
-      </svg>
-    );
-  }
+.uch-panel {
+  background: rgba(38, 38, 38, 0.88);
+  border: 1px solid #404040;
+  border-radius: 14px;
 
-  // ---------------------------------------------------------
-  // 폰
-  // ---------------------------------------------------------
-  return (
-    <svg {...common}>
-      <g transform={`scale(${scale})`}>
-        {/* 머리 */}
-        <circle
-          cx="40"
-          cy="25"
-          r="11"
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="1.8"
-        />
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
 
-        {/* 몸통 */}
-        <path
-          d="M31 35
-             C31 41 27 47 23 53
-             C20 57 19 62 19 65
-             H61
-             C61 62 60 57 57 53
-             C53 47 49 41 49 35
-             Z"
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="1.8"
-        />
+/* =========================================================
+   무덤 / 부활 기물
+   ========================================================= */
 
-        {/* 베이스 */}
-        <path
-          d="M14 65
-             C14 62 17 60 21 60
-             H59
-             C63 60 66 62 66 65
-             L68 72
-             H12Z"
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="1.8"
-        />
+.grave-piece {
+  position: relative;
 
-        {isWhite && (
-          <circle
-            cx="36"
-            cy="21"
-            r="3"
-            fill="#fff"
-            opacity=".8"
-          />
-        )}
-      </g>
-    </svg>
+  width: 52px;
+  height: 52px;
+
+  border-radius: 10px;
+  border: 1px solid #525252;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.035),
+      transparent 55%
+    ),
+    #262626;
+
+  color: #e5e5e5;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 1px;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* 위쪽 미세한 광택 */
+
+.grave-piece::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04),
+    transparent 35%
   );
-};
 
-const customPieces = {
-  wK: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="k"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
-  wQ: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="q"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
-  wR: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="r"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
-  wB: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="b"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
-  wN: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="n"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
-  wP: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="p"
-      color="w"
-      squareWidth={squareWidth}
-    />
-  ),
+  pointer-events: none;
+}
 
-  bK: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="k"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  ),
-  bQ: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="q"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  ),
-  bR: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="r"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  ),
-  bB: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="b"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  ),
-  bN: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="n"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  ),
-  bP: ({ squareWidth }) => (
-    <ChessPieceSVG
-      type="p"
-      color="b"
-      squareWidth={squareWidth}
-    />
-  )
-};
+/* 부활 가능한 기물 */
+
+.grave-piece-available {
+  cursor: pointer;
+}
+
+.grave-piece-available:hover {
+  transform: translateY(-2px) scale(1.04);
+
+  border-color: #facc15;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(250, 204, 21, 0.08),
+      transparent 60%
+    ),
+    #3f3f46;
+
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.28),
+    0 0 14px rgba(250, 204, 21, 0.12);
+}
+
+.grave-piece-available:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* 선택된 기물 */
+
+.grave-piece-selected {
+  border: 2px solid #facc15;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(250, 204, 21, 0.16),
+      rgba(161, 98, 7, 0.38)
+    ),
+    #3f3f46;
+
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.28),
+    0 0 18px rgba(250, 204, 21, 0.35);
+
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* 부활 불가능 */
+
+.grave-piece-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+
+  filter: grayscale(0.25);
+}
+
+/* disabled 버튼도 클릭 이벤트를 받을 수 있도록 */
+
+button.grave-piece:disabled {
+  pointer-events: auto;
+}
+
+/* =========================================================
+   부활 가능 칸
+   ========================================================= */
+
+/*
+  react-chessboard의 customSquareStyles와 함께 사용.
+  실제 칸 색상은 App.jsx에서 지정하고,
+  여기서는 클릭/하이라이트가 자연스럽게 보이도록
+  공통 애니메이션만 준비.
+*/
+
+.revive-square {
+  cursor: pointer;
+}
+
+/* =========================================================
+   부활 종료 버튼
+   ========================================================= */
+
+.revive-finish-button {
+  border: 1px solid #525252;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.015)
+    ),
+    #262626;
+
+  color: #d4d4d4;
+
+  border-radius: 10px;
+
+  padding: 8px 12px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.revive-finish-button:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02)
+    ),
+    #303030;
+
+  border-color: #737373;
+
+  color: #ffffff;
+}
+
+.revive-finish-button:active {
+  transform: scale(0.98);
+}
+
+/* =========================================================
+   UNO CARD — 공통
+   ========================================================= */
+
+.uno-card {
+  position: relative;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  user-select: none;
+  overflow: hidden;
+}
+
+.uno-card::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.13),
+      transparent 32%
+    );
+}
+
+/* =========================================================
+   ACTIVE UNO CARD
+   ========================================================= */
+
+.active-uno-card {
+  position: relative;
+
+  transform-origin: center;
+
+  animation: unoCardAppear 0.22s ease-out;
+}
+
+@keyframes unoCardAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* =========================================================
+   TURN INDICATOR
+   ========================================================= */
+
+.turn-indicator {
+  animation: turnPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes turnPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(250, 204, 21, 0);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(250, 204, 21, 0.08);
+  }
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+.toast {
+  animation:
+    toastIn 0.2s ease-out,
+    toastOut 0.2s ease-in 2.8s forwards;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+/* =========================================================
+   GAME OVER
+   ========================================================= */
+
+.game-over-overlay {
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.game-over-panel {
+  animation: gameOverAppear 0.25s ease-out;
+}
+
+@keyframes gameOverAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* =========================================================
+   TUTORIAL / MODAL
+   ========================================================= */
+
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.62);
+
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.modal-panel {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.035),
+      transparent 35%
+    ),
+    #202020;
+
+  border: 1px solid #404040;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+
+  animation: modalAppear 0.2s ease-out;
+}
+
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+input {
+  background: #262626;
+  color: #f5f5f5;
+
+  border: 1px solid #404040;
+  border-radius: 9px;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+input::placeholder {
+  color: #737373;
+}
+
+input:hover {
+  border-color: #525252;
+}
+
+input:focus {
+  border-color: #facc15;
+
+  background: #292929;
+
+  box-shadow:
+    0 0 0 3px rgba(250, 204, 21, 0.1);
+
+  outline: none;
+}
+
+/* =========================================================
+   MENU BUTTON
+   ========================================================= */
+
+.menu-button {
+  position: relative;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.045),
+      rgba(255, 255, 255, 0.015)
+    ),
+    #262626;
+
+  color: #e5e5e5;
+
+  border: 1px solid #404040;
+  border-radius: 12px;
+
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.menu-button:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02)
+    ),
+    #303030;
+
+  border-color: #525252;
+
+  color: #ffffff;
+
+  transform: translateY(-1px);
+}
+
+.menu-button:active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* =========================================================
+   PRIMARY BUTTON
+   ========================================================= */
+
+.primary-button {
+  background: #facc15;
+  color: #171717;
+
+  border: 1px solid #fde047;
+  border-radius: 10px;
+
+  font-weight: 700;
+
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.22),
+    0 0 0 0 rgba(250, 204, 21, 0);
+}
+
+.primary-button:hover {
+  background: #fde047;
+
+  box-shadow:
+    0 5px 18px rgba(0, 0, 0, 0.28),
+    0 0 18px rgba(250, 204, 21, 0.14);
+
+  transform: translateY(-1px);
+}
+
+.primary-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.primary-button:disabled {
+  background: #525252;
+  border-color: #525252;
+  color: #a3a3a3;
+
+  box-shadow: none;
+}
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+.secondary-button {
+  background: #262626;
+  color: #d4d4d4;
+
+  border: 1px solid #404040;
+  border-radius: 10px;
+}
+
+.secondary-button:hover {
+  background: #303030;
+  border-color: #525252;
+  color: #ffffff;
+}
+
+/* =========================================================
+   DANGER BUTTON
+   ========================================================= */
+
+.danger-button {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+}
+
+.danger-button:hover {
+  background: rgba(153, 27, 27, 0.5);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fecaca;
+}
+
+/* =========================================================
+   CHESSBOARD CONTAINER
+   ========================================================= */
+
+.chessboard-container {
+  position: relative;
+
+  border-radius: 8px;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.38),
+    0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+/*
+  react-chessboard 내부 보드가 부모의
+  둥근 모서리를 자연스럽게 따라가도록 처리
+*/
+
+.chessboard-container > div {
+  border-radius: inherit;
+}
+
+/* =========================================================
+   CHESSBOARD PIECE / SQUARE TRANSITION
+   ========================================================= */
+
+.chessboard-container [class*="piece"] {
+  user-select: none;
+}
+
+/* =========================================================
+   BOARD AREA
+   ========================================================= */
+
+.board-area {
+  position: relative;
+}
+
+/* =========================================================
+   GRAVEYARD AREA
+   ========================================================= */
+
+.graveyard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* =========================================================
+   PLAYER AREA
+   ========================================================= */
+
+.player-area {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.025),
+      transparent 50%
+    ),
+    rgba(38, 38, 38, 0.72);
+
+  border: 1px solid #383838;
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 5px 20px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* =========================================================
+   UNO DECK
+   ========================================================= */
+
+.uno-deck {
+  position: relative;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.05),
+      transparent 50%
+    ),
+    #252525;
+
+  border: 1px solid #454545;
+
+  box-shadow:
+    0 7px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.uno-deck:hover {
+  transform: translateY(-2px);
+
+  border-color: #666666;
+
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.34),
+    0 0 12px rgba(255, 255, 255, 0.025);
+}
+
+/* =========================================================
+   CONNECTION STATUS
+   ========================================================= */
+
+.connection-online {
+  color: #86efac;
+}
+
+.connection-offline {
+  color: #fca5a5;
+}
+
+.connection-waiting {
+  color: #fde68a;
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #facc15;
+
+  animation: spinnerRotate 0.75s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   PULSE
+   ========================================================= */
+
+.pulse-yellow {
+  animation: yellowPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes yellowPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.65;
+  }
+}
+
+/* =========================================================
+   CARD DRAW ANIMATION
+   ========================================================= */
+
+.card-draw-animation {
+  animation: cardDraw 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes cardDraw {
+  from {
+    opacity: 0;
+    transform: translateY(12px) rotate(-2deg) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
+
+/* =========================================================
+   PIECE CAPTURE EFFECT
+   ========================================================= */
+
+.capture-effect {
+  animation: captureFlash 0.25s ease-out;
+}
+
+@keyframes captureFlash {
+  0% {
+    filter: brightness(1);
+  }
+
+  45% {
+    filter: brightness(1.45);
+  }
+
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .grave-piece {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .grave-piece {
+    width: 46px;
+    height: 46px;
+
+    border-radius: 9px;
+  }
+
+  .player-area {
+    border-radius: 12px;
+  }
+
+  .chessboard-container {
+    border-radius: 6px;
+
+    box-shadow:
+      0 8px 22px rgba(0, 0, 0, 0.34),
+      0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
