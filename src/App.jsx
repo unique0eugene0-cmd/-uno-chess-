@@ -49,16 +49,45 @@ const cloneCaptured = captured => ({
 });
 
 /* =========================================================
-   안전한 체스 인스턴스 생성 (Missing King 크래시 방어)
+   [수정됨] 무적 체스 인스턴스 생성 (Custom FEN Forcer)
    ========================================================= */
 const createSafeGame = (fen) => {
   const game = new Chess();
+  if (!fen) return game;
+  
   try {
-    if (fen) game.load(fen);
+    const success = game.load(fen);
+    if (!success) throw new Error('Invalid FEN');
   } catch (e) {
-    console.warn('[Chess.js] FEN 로드 경고 (킹 부재 등 커스텀 룰 허용):', e);
-    // 에러 발생 시 앱이 죽지 않도록 빈 체스판으로 초기화 후 수동 복구 등 예외 처리가 가능하나, 
-    // 현재는 커스텀 FEN 조작을 유지하기 위해 최소한의 방어만 수행합니다.
+    // 🔥 킹이 없거나 다중턴 체크 상태 등으로 FEN이 거부되면 수동으로 강제 배치합니다.
+    try {
+      const parts = fen.split(' ');
+      const turn = parts[1] === 'b' ? 'b' : 'w';
+      
+      // 1. 강제로 턴을 맞춘 빈 체스판 로드 (에러 방지용 임시 킹 2개 포함)
+      game.load(`4k3/8/8/8/8/8/8/4K3 ${turn} - 0 1`);
+      game.remove('e1');
+      game.remove('e8');
+      
+      // 2. 엔진 검증을 무시하고 현재 기물들을 정확한 위치에 수동(put) 배치
+      const rows = parts[0].split('/');
+      for (let r = 0; r < 8; r++) {
+        if (!rows[r]) continue;
+        let c = 0;
+        for (let i = 0; i < rows[r].length; i++) {
+          const char = rows[r][i];
+          if (!isNaN(char)) {
+            c += parseInt(char);
+          } else {
+            const color = char === char.toLowerCase() ? 'b' : 'w';
+            game.put({ type: char.toLowerCase(), color }, String.fromCharCode(97 + c) + (8 - r));
+            c++;
+          }
+        }
+      }
+    } catch (innerE) {
+      console.error('[Engine Override Failed]', innerE);
+    }
   }
   return game;
 };
@@ -230,7 +259,7 @@ const TutorialModal = ({ onClose }) => (
               <b className="text-purple-400">Skip</b><br />아무 행동 없이 턴을 넘깁니다.
             </div>
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700">
-              <b className="text-pink-400">Reverse</b><br />체스판 시점이 180도 반전됩니다.
+              <b className="text-pink-400">Reverse</b><br />체스판 시점이 반전되며 내가 반대 진영으로 한 번 더 행동합니다!
             </div>
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700">
               <b className="text-cyan-400">Draw 2+</b><br />잡힌 기물을 포인트를 사용해 자신의 1~2랭크에 부활시킵니다.
@@ -296,7 +325,6 @@ export default function App() {
   const connRef = useRef(null);
   const stateRef = useRef({});
 
-  // 리액트 라이프사이클 클린업 (메모리 누수 방지)
   useEffect(() => {
     return () => {
       try { connRef.current?.close(); } catch {}
@@ -857,20 +885,23 @@ export default function App() {
     if (card.type === 'reverse') {
       const newOrientation = current.boardOrientation === 'white' ? 'black' : 'white';
       setBoardOrientation(newOrientation);
+      
+      // 🔥 [수정 1] Reverse 시 내 컨트롤 색상도 무조건 스왑
+      const nextMyColor = myColor === 'w' ? 'b' : 'w';
+      setMyColor(nextMyColor);
       setMovesRemaining(0);
 
       if (mode === 'p2p') {
-        const nextMyColor = myColor === 'w' ? 'b' : 'w';
-        setMyColor(nextMyColor);
         sendMessage({ type: 'REVERSE', boardOrientation: newOrientation, activeCard: card });
       }
 
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0, boardOrientation: newOrientation });
-      showToast('Reverse! 체스판이 180도 반전됩니다.');
+      showToast('Reverse! 진영이 바뀌며 턴을 한 번 더 진행합니다.');
 
       setTimeout(() => {
         setActiveCard(null);
         setMovesRemaining(0);
+        // endTurn이 unoTurnColor를 뒤집으므로 결과적으로 내가 한 번 더 하게 됨 (Skip 효과)
         endTurn(current.fen, { boardOrientation: newOrientation });
       }, 900);
       return;
@@ -956,6 +987,7 @@ export default function App() {
 
       let nextFen = nextGame.fen();
       if (remaining > 0) {
+        // 🔥 [수정 2] 연속 이동시 강제 FEN 조작 후 안전한 게임으로 로드
         const parts = nextFen.split(' ');
         parts[1] = current.unoTurnColor;
         parts[3] = '-';
@@ -1054,7 +1086,7 @@ export default function App() {
   }, [canControlCurrentTurn, showToast, endTurn, syncState]);
 
   /* =======================================================
-     🔥 AI Effect: 비동기 Stale State 및 크래시 완벽 해결
+     🔥 AI Effect: 비동기 Stale State 및 다중 이동 수정
      ======================================================= */
   useEffect(() => {
     const currentInit = stateRef.current;
@@ -1074,7 +1106,6 @@ export default function App() {
       const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
       await wait(850);
       
-      // 🔥 [중요 수정] await 대기 중 리액트 상태가 변했을 수 있으므로 최신 상태를 강제 재참조
       let latest = stateRef.current; 
       const aiColor = latest.unoTurnColor;
 
@@ -1096,7 +1127,7 @@ export default function App() {
           if (card.type === 'skip') {
             showToast('AI 카드: Skip');
             await wait(700);
-            latest = stateRef.current; // 🔥 다시 최신화
+            latest = stateRef.current; 
             endTurn(latest.fen);
             return;
           }
@@ -1104,8 +1135,9 @@ export default function App() {
             showToast('AI 카드: Reverse');
             const newOrientation = latest.boardOrientation === 'white' ? 'black' : 'white';
             setBoardOrientation(newOrientation);
+            setMyColor(prev => prev === 'w' ? 'b' : 'w'); // 🔥 AI도 Reverse시 색상 스왑!
             await wait(700);
-            latest = stateRef.current; // 🔥 다시 최신화
+            latest = stateRef.current;
             setActiveCard(null);
             setMovesRemaining(0);
             endTurn(latest.fen, { boardOrientation: newOrientation });
@@ -1205,24 +1237,12 @@ export default function App() {
           }
 
           if (remaining > 0) {
+            // 🔥 [수정 2] try-catch 블록 제거: createSafeGame이 에러 없이 무조건 처리함
             const parts = nextFen.split(' ');
             parts[1] = latest.unoTurnColor;
             parts[3] = '-';
-            const tempFen = parts.join(' ');
-            const testGame = createSafeGame();
-            
-            try {
-              if (testGame.load(tempFen)) {
-                nextFen = tempFen;
-                nextGame = testGame;
-              } else {
-                endTurn(currentGame.fen(), { capturedTargets: nextCaptured });
-                return;
-              }
-            } catch (e) {
-              endTurn(currentGame.fen(), { capturedTargets: nextCaptured });
-              return;
-            }
+            nextFen = parts.join(' ');
+            nextGame = createSafeGame(nextFen);
           }
 
           setGame(nextGame);
