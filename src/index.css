@@ -1,128 +1,536 @@
-@import "tailwindcss";
+// =========================================================
+// 체스닷컴풍 커스텀 기물
+// =========================================================
 
-html,
-body,
-#root {
-  min-height: 100%;
-  margin: 0;
-}
+const ChessPieceSVG = ({
+  type,
+  color,
+  squareWidth = 80
+}) => {
+  const isWhite = color === 'w';
 
-body {
-  background: #171717;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+  const fill = isWhite ? '#f4f1e8' : '#262522';
+  const stroke = isWhite ? '#d0ccc3' : '#11110f';
+  const highlight = isWhite ? '#ffffff' : '#4a4945';
 
-* {
-  box-sizing: border-box;
-}
+  const scale = squareWidth / 80;
 
-button,
-input {
-  font: inherit;
-}
+  const common = {
+    width: squareWidth,
+    height: squareWidth,
+    viewBox: '0 0 80 80',
+    xmlns: 'http://www.w3.org/2000/svg',
+    style: {
+      display: 'block',
+      overflow: 'visible',
+      filter: isWhite
+        ? 'drop-shadow(0 2px 2px rgba(0,0,0,.35))'
+        : 'drop-shadow(0 2px 2px rgba(0,0,0,.55))'
+    }
+  };
 
-/* =========================================================
-   무덤 / 부활 기물
-   ========================================================= */
+  // ---------------------------------------------------------
+  // 킹
+  // ---------------------------------------------------------
+  if (type === 'k') {
+    return (
+      <svg {...common}>
+        <g transform={`scale(${scale})`}>
+          {/* 십자가 */}
+          <path
+            d="M36 8h8v7h7v8h-7v7h-8v-7h-7v-8h7z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
 
-.grave-piece {
-  width: 52px;
-  height: 52px;
-  border-radius: 10px;
-  border: 1px solid #525252;
-  background: #262626;
-  color: #e5e5e5;
+          {/* 왕관 머리 */}
+          <path
+            d="M29 31
+               C29 27 32 24 36 23
+               H44
+               C48 24 51 27 51 31
+               L49 37
+               H31Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.5"
+          />
 
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+          {/* 목 */}
+          <path
+            d="M32 35 L48 35 L50 42 L30 42 Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.5"
+          />
 
-  gap: 1px;
+          {/* 몸통 */}
+          <path
+            d="M30 41
+               C30 47 26 52 22 57
+               C19 61 18 65 18 68
+               H62
+               C62 65 61 61 58 57
+               C54 52 50 47 50 41
+               Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
 
-  transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    opacity 0.15s ease,
-    background 0.15s ease,
-    box-shadow 0.15s ease;
-}
+          {/* 베이스 */}
+          <path
+            d="M14 68
+               C14 65 17 63 21 63
+               H59
+               C63 63 66 65 66 68
+               L68 72
+               H12Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
 
-.grave-piece-available {
-  cursor: pointer;
-}
-
-.grave-piece-available:hover {
-  transform: translateY(-2px) scale(1.04);
-  border-color: #facc15;
-  background: #3f3f46;
-}
-
-.grave-piece-selected {
-  border: 2px solid #facc15;
-  background: rgba(161, 98, 7, 0.45);
-  box-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
-  transform: translateY(-2px) scale(1.05);
-}
-
-.grave-piece-disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* =========================================================
-   부활 가능 칸
-   ========================================================= */
-
-button.grave-piece:disabled {
-  pointer-events: auto;
-}
-
-/* =========================================================
-   스크롤바
-   ========================================================= */
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #171717;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #404040;
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #525252;
-}
-
-/* =========================================================
-   모바일 대응
-   ========================================================= */
-
-@media (max-width: 640px) {
-  .grave-piece {
-    width: 46px;
-    height: 46px;
+          {/* 하이라이트 */}
+          {isWhite && (
+            <path
+              d="M25 48 C28 43 31 39 34 37"
+              fill="none"
+              stroke={highlight}
+              strokeWidth="3"
+              strokeLinecap="round"
+              opacity=".7"
+            />
+          )}
+        </g>
+      </svg>
+    );
   }
-}
 
-/* =========================================================
-   선택 텍스트
-   ========================================================= */
+  // ---------------------------------------------------------
+  // 퀸
+  // ---------------------------------------------------------
+  if (type === 'q') {
+    return (
+      <svg {...common}>
+        <g transform={`scale(${scale})`}>
+          {/* 왕관 */}
+          <path
+            d="M19 30
+               L23 17
+               L31 25
+               L40 13
+               L49 25
+               L57 17
+               L61 30
+               L56 36
+               H24Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
 
-::selection {
-  background: rgba(250, 204, 21, 0.35);
-  color: white;
-}
+          {/* 왕관 보석 */}
+          <circle
+            cx="23"
+            cy="17"
+            r="2.5"
+            fill={highlight}
+          />
+          <circle
+            cx="40"
+            cy="13"
+            r="2.5"
+            fill={highlight}
+          />
+          <circle
+            cx="57"
+            cy="17"
+            r="2.5"
+            fill={highlight}
+          />
+
+          {/* 목 */}
+          <path
+            d="M29 34 H51 L49 42 H31Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.5"
+          />
+
+          {/* 몸통 */}
+          <path
+            d="M31 41
+               C31 47 27 52 23 57
+               C20 61 19 65 19 68
+               H61
+               C61 65 60 61 57 57
+               C53 52 49 47 49 41
+               Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+
+          {/* 베이스 */}
+          <path
+            d="M14 68
+               C14 65 17 63 21 63
+               H59
+               C63 63 66 65 66 68
+               L68 72
+               H12Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+
+          {isWhite && (
+            <path
+              d="M27 48 C30 43 33 39 36 37"
+              fill="none"
+              stroke={highlight}
+              strokeWidth="3"
+              strokeLinecap="round"
+              opacity=".7"
+            />
+          )}
+        </g>
+      </svg>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 룩
+  // ---------------------------------------------------------
+  if (type === 'r') {
+    return (
+      <svg {...common}>
+        <g transform={`scale(${scale})`}>
+          {/* 성벽 */}
+          <path
+            d="M22 30
+               V18
+               H29
+               V24
+               H35
+               V18
+               H45
+               V24
+               H51
+               V18
+               H58
+               V30
+               L54 35
+               H26Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+
+          {/* 몸통 */}
+          <path
+            d="M28 33 H52
+               L50 43
+               C50 48 54 54 58 59
+               C61 63 62 66 62 68
+               H18
+               C18 66 19 63 22 59
+               C26 54 30 48 30 43
+               Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+
+          {/* 베이스 */}
+          <path
+            d="M14 68
+               H66
+               L68 72
+               H12Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+        </g>
+      </svg>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 비숍
+  // ---------------------------------------------------------
+  if (type === 'b') {
+    return (
+      <svg {...common}>
+        <g transform={`scale(${scale})`}>
+          {/* 머리 */}
+          <path
+            d="M40 12
+               C33 15 28 21 29 28
+               C30 34 35 37 36 40
+               L31 46
+               H49
+               L44 40
+               C45 37 50 34 51 28
+               C52 21 47 15 40 12Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+
+          {/* 비숍 특유의 대각선 */}
+          <path
+            d="M45 19 L35 34"
+            stroke={isWhite ? '#aaa69f' : '#11110f'}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+
+          {/* 몸통 */}
+          <path
+            d="M31 44
+               C31 50 27 54 23 59
+               C20 63 19 66 19 68
+               H61
+               C61 66 60 63 57 59
+               C53 54 49 50 49 44
+               Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+
+          {/* 베이스 */}
+          <path
+            d="M14 68
+               H66
+               L68 72
+               H12Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+        </g>
+      </svg>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 나이트
+  // ---------------------------------------------------------
+  if (type === 'n') {
+    return (
+      <svg {...common}>
+        <g transform={`scale(${scale})`}>
+          {/* 말 머리 */}
+          <path
+            d="M27 66
+               C25 58 27 51 32 46
+               C35 42 34 38 32 34
+               C29 29 30 22 35 16
+               C41 9 51 10 57 15
+               C53 18 49 21 48 25
+               C54 28 57 34 55 41
+               C53 49 48 53 47 58
+               C46 62 49 65 52 68
+               H27Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+
+          {/* 귀 */}
+          <path
+            d="M36 16 L37 8 L44 16"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+
+          {/* 갈기 */}
+          <path
+            d="M33 25
+               C38 21 43 19 49 19
+               C45 23 44 27 47 30
+               C42 29 37 28 33 25Z"
+            fill={highlight}
+            opacity=".5"
+          />
+
+          {/* 눈 */}
+          <circle
+            cx="47"
+            cy="27"
+            r="1.7"
+            fill={isWhite ? '#555' : '#ddd'}
+          />
+
+          {/* 베이스 */}
+          <path
+            d="M20 66
+               H57
+               C61 66 64 68 65 72
+               H15
+               C16 69 18 67 20 66Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth="1.8"
+          />
+        </g>
+      </svg>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 폰
+  // ---------------------------------------------------------
+  return (
+    <svg {...common}>
+      <g transform={`scale(${scale})`}>
+        {/* 머리 */}
+        <circle
+          cx="40"
+          cy="25"
+          r="11"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.8"
+        />
+
+        {/* 몸통 */}
+        <path
+          d="M31 35
+             C31 41 27 47 23 53
+             C20 57 19 62 19 65
+             H61
+             C61 62 60 57 57 53
+             C53 47 49 41 49 35
+             Z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.8"
+        />
+
+        {/* 베이스 */}
+        <path
+          d="M14 65
+             C14 62 17 60 21 60
+             H59
+             C63 60 66 62 66 65
+             L68 72
+             H12Z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.8"
+        />
+
+        {isWhite && (
+          <circle
+            cx="36"
+            cy="21"
+            r="3"
+            fill="#fff"
+            opacity=".8"
+          />
+        )}
+      </g>
+    </svg>
+  );
+};
+
+const customPieces = {
+  wK: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="k"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+  wQ: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="q"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+  wR: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="r"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+  wB: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="b"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+  wN: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="n"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+  wP: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="p"
+      color="w"
+      squareWidth={squareWidth}
+    />
+  ),
+
+  bK: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="k"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  ),
+  bQ: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="q"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  ),
+  bR: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="r"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  ),
+  bB: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="b"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  ),
+  bN: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="n"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  ),
+  bP: ({ squareWidth }) => (
+    <ChessPieceSVG
+      type="p"
+      color="b"
+      squareWidth={squareWidth}
+    />
+  )
+};
