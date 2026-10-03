@@ -49,7 +49,7 @@ const cloneCaptured = captured => ({
 });
 
 /* =========================================================
-   [수정됨] 무적 체스 인스턴스 생성 (Custom FEN Forcer)
+   무적 체스 인스턴스 생성 (Custom FEN Forcer)
    ========================================================= */
 const createSafeGame = (fen) => {
   const game = new Chess();
@@ -59,17 +59,14 @@ const createSafeGame = (fen) => {
     const success = game.load(fen);
     if (!success) throw new Error('Invalid FEN');
   } catch (e) {
-    // 🔥 킹이 없거나 다중턴 체크 상태 등으로 FEN이 거부되면 수동으로 강제 배치합니다.
     try {
       const parts = fen.split(' ');
       const turn = parts[1] === 'b' ? 'b' : 'w';
       
-      // 1. 강제로 턴을 맞춘 빈 체스판 로드 (에러 방지용 임시 킹 2개 포함)
       game.load(`4k3/8/8/8/8/8/8/4K3 ${turn} - 0 1`);
       game.remove('e1');
       game.remove('e8');
       
-      // 2. 엔진 검증을 무시하고 현재 기물들을 정확한 위치에 수동(put) 배치
       const rows = parts[0].split('/');
       for (let r = 0; r < 8; r++) {
         if (!rows[r]) continue;
@@ -554,21 +551,19 @@ export default function App() {
     });
   };
 
+  // 🔥 [턴 멈춤 버그 수정] 엔진 턴(fen)에 의존하지 않고 수학적으로 완벽하게 턴을 넘기도록 수정
   const endTurn = useCallback((currentFen, extraSync = {}) => {
     try {
-      const currentGame = createSafeGame(currentFen);
       let nextFen = currentFen;
-      let nextColor = currentGame.turn();
+      const nextColor = stateRef.current.unoTurnColor === 'w' ? 'b' : 'w';
 
-      if (currentGame.turn() === unoTurnColor) {
-        const parts = currentFen.split(' ');
-        nextColor = parts[1] === 'w' ? 'b' : 'w';
-        parts[1] = nextColor;
-        parts[3] = '-';
-        nextFen = parts.join(' ');
-      }
+      const parts = currentFen.split(' ');
+      parts[1] = nextColor; 
+      parts[3] = '-'; 
+      nextFen = parts.join(' ');
 
       const nextGame = createSafeGame(nextFen);
+      
       setGame(nextGame);
       setFen(nextFen);
       setUnoTurnColor(nextColor);
@@ -584,7 +579,7 @@ export default function App() {
         movesRemaining: 0, revivePoints: 0, ...extraSync
       });
     } catch (e) { console.error('[END TURN]', e); }
-  }, [unoTurnColor, syncState]);
+  }, [syncState]);
 
   const getDeadPieces = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, colorOverride = stateRef.current.unoTurnColor) => {
     const currentGame = createSafeGame(currentFen);
@@ -637,7 +632,8 @@ export default function App() {
     endTurn(currentFen, { revivePoints: 0, activeCard: null, movesRemaining: 0 });
   }, [endTurn]);
 
-  const startRevive = useCallback((card, currentFen) => {
+  // 🔥 [+카드(Draw) 동기화 오류 완전 해결] 한 번의 Payload로 병목 없이 상태 전송
+  const startRevive = useCallback((card, currentFen, currentDeck) => {
     const currentCaptured = stateRef.current.capturedTargets;
     const currentColor = stateRef.current.unoTurnColor;
     const deadPieces = getDeadPieces(currentFen, currentCaptured, currentColor);
@@ -647,20 +643,21 @@ export default function App() {
       setActiveCard(card);
       setRevivePoints(0);
       setMovesRemaining(1);
-      syncState({ activeCard: card, revivePoints: 0, movesRemaining: 1 });
+      syncState({ activeCard: card, revivePoints: 0, movesRemaining: 1, deck: currentDeck });
       return;
     }
 
     const affordable = deadPieces.filter(piece => piece.points <= card.value);
     if (affordable.length === 0) {
       showToast(`+${card.value}P로 부활할 수 있는 기물이 없습니다. 턴을 종료합니다.`);
+      syncState({ activeCard: card, deck: currentDeck }); 
       setTimeout(() => { finishRevive(currentFen); }, 300);
       return;
     }
 
     setRevivePoints(card.value);
     setSelectedRevivePiece(null);
-    syncState({ activeCard: card, movesRemaining: 0, revivePoints: card.value });
+    syncState({ activeCard: card, movesRemaining: 0, revivePoints: card.value, deck: currentDeck });
     showToast(`+${card.value}P · 부활할 기물을 선택하세요.`);
   }, [getDeadPieces, finishRevive, showToast, syncState]);
 
@@ -886,7 +883,6 @@ export default function App() {
       const newOrientation = current.boardOrientation === 'white' ? 'black' : 'white';
       setBoardOrientation(newOrientation);
       
-      // 🔥 [수정 1] Reverse 시 내 컨트롤 색상도 무조건 스왑
       const nextMyColor = myColor === 'w' ? 'b' : 'w';
       setMyColor(nextMyColor);
       setMovesRemaining(0);
@@ -901,15 +897,13 @@ export default function App() {
       setTimeout(() => {
         setActiveCard(null);
         setMovesRemaining(0);
-        // endTurn이 unoTurnColor를 뒤집으므로 결과적으로 내가 한 번 더 하게 됨 (Skip 효과)
         endTurn(current.fen, { boardOrientation: newOrientation });
       }, 900);
       return;
     }
 
     if (card.type === 'draw') {
-      syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0, revivePoints: card.value });
-      startRevive(card, current.fen);
+      startRevive(card, current.fen, currentDeck);
       return;
     }
 
@@ -953,17 +947,13 @@ export default function App() {
         return false;
       }
 
+      // 🔥 [게임 강제 종료 버그 수정] 엔진 검사를 위해 가상 보드(Ghost Board)에서 미리 체크
       let canCapture = false;
       try {
-        if (targetPiece.type === 'k') {
-          const test = createSafeGame(current.fen);
-          test.remove(targetSquare);
-          const move = test.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-          canCapture = !!move;
-        } else {
-          const moves = currentGame.moves({ square: sourceSquare, verbose: true });
-          canCapture = moves.some(move => move.to === targetSquare);
-        }
+        const test = createSafeGame(current.fen);
+        if (targetPiece.type === 'k') test.remove(targetSquare); 
+        const moves = test.moves({ square: sourceSquare, verbose: true });
+        canCapture = moves.some(move => move.to === targetSquare);
       } catch { canCapture = false; }
 
       if (!canCapture) return false;
@@ -971,23 +961,14 @@ export default function App() {
       const nextCaptured = cloneCaptured(current.capturedTargets);
       nextCaptured[targetPiece.color][targetPiece.type] = true;
 
-      if (targetPiece.type === 'k') {
-        currentGame.remove(targetSquare);
-        const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-        if (!move) {
-          currentGame.put({ type: piece.type, color: piece.color }, targetSquare);
-          currentGame.remove(sourceSquare);
-        }
-        nextGame = currentGame;
-      } else if (targetPiece.type === 'q') {
-        const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-        if (!move) return false;
-        nextGame = currentGame;
-      }
+      // 🔥 엔진 Validation을 100% 우회하는 순간이동 강제 배치
+      currentGame.remove(targetSquare);
+      currentGame.remove(sourceSquare);
+      currentGame.put({ type: piece.type, color: piece.color }, targetSquare);
+      nextGame = currentGame;
 
       let nextFen = nextGame.fen();
       if (remaining > 0) {
-        // 🔥 [수정 2] 연속 이동시 강제 FEN 조작 후 안전한 게임으로 로드
         const parts = nextFen.split(' ');
         parts[1] = current.unoTurnColor;
         parts[3] = '-';
@@ -1085,9 +1066,6 @@ export default function App() {
     }
   }, [canControlCurrentTurn, showToast, endTurn, syncState]);
 
-  /* =======================================================
-     🔥 AI Effect: 비동기 Stale State 및 다중 이동 수정
-     ======================================================= */
   useEffect(() => {
     const currentInit = stateRef.current;
     
@@ -1135,7 +1113,7 @@ export default function App() {
             showToast('AI 카드: Reverse');
             const newOrientation = latest.boardOrientation === 'white' ? 'black' : 'white';
             setBoardOrientation(newOrientation);
-            setMyColor(prev => prev === 'w' ? 'b' : 'w'); // 🔥 AI도 Reverse시 색상 스왑!
+            setMyColor(prev => prev === 'w' ? 'b' : 'w'); 
             await wait(700);
             latest = stateRef.current;
             setActiveCard(null);
@@ -1208,14 +1186,12 @@ export default function App() {
             if (nextCaptured[target.color].k && nextCaptured[target.color].q) { won = true; }
           }
 
-          if (target && target.type === 'k') {
+          if (target && (target.type === 'k' || target.type === 'q')) {
+            // 🔥 AI 로직에도 순간이동식 엔진 우회 포획 적용
+            const mover = currentGame.get(move.from);
             currentGame.remove(move.to);
-            const res = currentGame.move(move);
-            if (!res) {
-               const mover = currentGame.get(move.from);
-               currentGame.put(mover, move.to);
-               currentGame.remove(move.from);
-            }
+            currentGame.remove(move.from);
+            currentGame.put(mover, move.to);
           } else {
             currentGame.move(move);
           }
@@ -1237,7 +1213,6 @@ export default function App() {
           }
 
           if (remaining > 0) {
-            // 🔥 [수정 2] try-catch 블록 제거: createSafeGame이 에러 없이 무조건 처리함
             const parts = nextFen.split(' ');
             parts[1] = latest.unoTurnColor;
             parts[3] = '-';
