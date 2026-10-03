@@ -63,9 +63,15 @@ const createSafeGame = (fen) => {
       const parts = fen.split(' ');
       const turn = parts[1] === 'b' ? 'b' : 'w';
       
-      game.load(`4k3/8/8/8/8/8/8/4K3 ${turn} - 0 1`);
-      game.remove('e1');
-      game.remove('e8');
+      // 🔥 [버그 수정 1] 앙파상 칸 기호 '-' 누락 수정 (정확한 6자리 FEN)
+      try {
+        game.load(`4k3/8/8/8/8/8/8/4K3 ${turn} - - 0 1`);
+        game.remove('e1');
+        game.remove('e8');
+      } catch (err) {
+        // 엔진 버전에 따라 load가 거부될 경우를 대비한 완전 초기화
+        game.clear(); 
+      }
       
       const rows = parts[0].split('/');
       for (let r = 0; r < 8; r++) {
@@ -82,8 +88,17 @@ const createSafeGame = (fen) => {
           }
         }
       }
+
+      // 강제로 턴 다시 세팅
+      const currentFen = game.fen(); 
+      const newParts = currentFen.split(' ');
+      newParts[1] = turn;
+      newParts[3] = '-'; 
+      try { game.load(newParts.join(' ')); } catch {}
+
     } catch (innerE) {
-      console.error('[Engine Override Failed]', innerE);
+      // 이제 이쪽으로 빠질 일이 거의 없음
+      // console.error('[Engine Override Failed]', innerE);
     }
   }
   return game;
@@ -551,7 +566,6 @@ export default function App() {
     });
   };
 
-  // 🔥 [턴 멈춤 버그 수정] 엔진 턴(fen)에 의존하지 않고 수학적으로 완벽하게 턴을 넘기도록 수정
   const endTurn = useCallback((currentFen, extraSync = {}) => {
     try {
       let nextFen = currentFen;
@@ -632,7 +646,6 @@ export default function App() {
     endTurn(currentFen, { revivePoints: 0, activeCard: null, movesRemaining: 0 });
   }, [endTurn]);
 
-  // 🔥 [+카드(Draw) 동기화 오류 완전 해결] 한 번의 Payload로 병목 없이 상태 전송
   const startRevive = useCallback((card, currentFen, currentDeck) => {
     const currentCaptured = stateRef.current.capturedTargets;
     const currentColor = stateRef.current.unoTurnColor;
@@ -941,13 +954,14 @@ export default function App() {
     let nextGame = currentGame;
     const remaining = current.movesRemaining - 1;
 
+    // 포획 처리 로직
     if (targetPiece && targetPiece.color !== current.unoTurnColor && (targetPiece.type === 'k' || targetPiece.type === 'q')) {
       if (current.capturedTargets[targetPiece.color]?.[targetPiece.type]) {
         showToast(`이미 잡힌 ${PIECE_NAMES[targetPiece.type]}입니다.`, 'error');
         return false;
       }
 
-      // 🔥 [게임 강제 종료 버그 수정] 엔진 검사를 위해 가상 보드(Ghost Board)에서 미리 체크
+      // 길 검증용 가상 보드
       let canCapture = false;
       try {
         const test = createSafeGame(current.fen);
@@ -961,7 +975,6 @@ export default function App() {
       const nextCaptured = cloneCaptured(current.capturedTargets);
       nextCaptured[targetPiece.color][targetPiece.type] = true;
 
-      // 🔥 엔진 Validation을 100% 우회하는 순간이동 강제 배치
       currentGame.remove(targetSquare);
       currentGame.remove(sourceSquare);
       currentGame.put({ type: piece.type, color: piece.color }, targetSquare);
@@ -1005,65 +1018,69 @@ export default function App() {
       return true;
     }
 
+    // 일반 기물 이동
+    let move = null;
     try {
-      let move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+      move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+    } catch (e) {}
 
-      if (move === null && currentGame.isCheck()) {
-        const relaxed = createSafeGame(current.fen);
-        let ownKingSquare = null;
-        for (let rank = 1; rank <= 8; rank++) {
-          for (let file = 0; file < 8; file++) {
-            const sq = String.fromCharCode(97 + file) + rank;
-            const p = relaxed.get(sq);
-            if (p && p.color === current.unoTurnColor && p.type === 'k') { ownKingSquare = sq; break; }
+    // 🔥 [버그 수정 2] 킹이 잡혀서 체스 엔진이 망가진 상태일 때 강제로 길 열어주기 (Phantom Move)
+    if (!move) {
+      const relaxed = createSafeGame(current.fen);
+      
+      // 양쪽 킹을 모두 보드 밖 구석(더미 위치)으로 치워버려서 엔진을 속임
+      for (let rank = 1; rank <= 8; rank++) {
+        for (let file = 0; file < 8; file++) {
+          const sq = String.fromCharCode(97 + file) + rank;
+          if (relaxed.get(sq)?.type === 'k') relaxed.remove(sq);
+        }
+      }
+      const dummyWhite = relaxed.get('a1') ? 'b1' : 'a1';
+      const dummyBlack = relaxed.get('h8') ? 'g8' : 'h8';
+      relaxed.put({ type: 'k', color: 'w' }, dummyWhite);
+      relaxed.put({ type: 'k', color: 'b' }, dummyBlack);
+
+      try {
+        const candidate = relaxed.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+        if (candidate) {
+          // 길이 열려있으면 원래 보드에서 강제로 순간이동!
+          const mover = currentGame.get(sourceSquare);
+          currentGame.remove(targetSquare);
+          currentGame.remove(sourceSquare);
+          if (mover.type === 'p' && (targetSquare[1] === '1' || targetSquare[1] === '8')) {
+            mover.type = 'q'; // 폰 승급 강제 적용
           }
-          if (ownKingSquare) break;
+          currentGame.put(mover, targetSquare);
+          move = { from: sourceSquare, to: targetSquare };
         }
-
-        if (ownKingSquare) {
-          const king = relaxed.get(ownKingSquare);
-          relaxed.remove(ownKingSquare);
-          try {
-            const candidate = relaxed.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-            if (candidate) {
-              relaxed.remove(ownKingSquare);
-              relaxed.put(king, ownKingSquare);
-              currentGame.load(relaxed.fen());
-              move = candidate;
-            }
-          } catch {}
-        }
-      }
-
-      if (!move) return false;
-
-      let nextFen = currentGame.fen();
-      nextGame = currentGame;
-
-      if (remaining > 0) {
-        const parts = nextFen.split(' ');
-        parts[1] = current.unoTurnColor;
-        parts[3] = '-';
-        nextFen = parts.join(' ');
-        nextGame = createSafeGame(nextFen);
-      }
-
-      setMovesRemaining(remaining);
-      setGame(nextGame);
-      setFen(nextFen);
-      setFenHistory(prev => [...prev, nextFen]);
-      setCaptureHistory(prev => [...prev, cloneCaptured(current.capturedTargets)]);
-
-      if (remaining > 0) {
-        syncState({ fen: nextFen, movesRemaining: remaining });
-      } else {
-        endTurn(nextFen);
-      }
-      return true;
-    } catch (e) {
-      console.error('[MOVE]', e);
-      return false;
+      } catch (err) {}
     }
+
+    if (!move) return false;
+
+    let nextFen = currentGame.fen();
+    nextGame = currentGame;
+
+    if (remaining > 0) {
+      const parts = nextFen.split(' ');
+      parts[1] = current.unoTurnColor;
+      parts[3] = '-';
+      nextFen = parts.join(' ');
+      nextGame = createSafeGame(nextFen);
+    }
+
+    setMovesRemaining(remaining);
+    setGame(nextGame);
+    setFen(nextFen);
+    setFenHistory(prev => [...prev, nextFen]);
+    setCaptureHistory(prev => [...prev, cloneCaptured(current.capturedTargets)]);
+
+    if (remaining > 0) {
+      syncState({ fen: nextFen, movesRemaining: remaining });
+    } else {
+      endTurn(nextFen);
+    }
+    return true;
   }, [canControlCurrentTurn, showToast, endTurn, syncState]);
 
   useEffect(() => {
@@ -1140,7 +1157,28 @@ export default function App() {
 
         if (latest.activeCard?.type === 'number' && latest.movesRemaining > 0) {
           const currentGame = createSafeGame(latest.fen);
-          let legalMoves = currentGame.moves({ verbose: true });
+          let legalMoves = [];
+          
+          try { legalMoves = currentGame.moves({ verbose: true }); } catch(e){}
+          
+          // 🔥 AI도 킹이 잡혀서 멍청해지는 것을 방지 (가상 보드로 강제 추출)
+          if (legalMoves.length === 0) {
+            const relaxed = createSafeGame(latest.fen);
+            for (let r = 1; r <= 8; r++) {
+              for (let c = 0; c < 8; c++) {
+                const sq = String.fromCharCode(97 + c) + r;
+                if (relaxed.get(sq)?.type === 'k') relaxed.remove(sq);
+              }
+            }
+            relaxed.put({ type: 'k', color: 'w' }, relaxed.get('a1') ? 'b1' : 'a1');
+            relaxed.put({ type: 'k', color: 'b' }, relaxed.get('h8') ? 'g8' : 'h8');
+            
+            const parts = relaxed.fen().split(' ');
+            parts[1] = aiColor;
+            try { relaxed.load(parts.join(' ')); } catch(e){}
+            
+            try { legalMoves = relaxed.moves({ verbose: true }); } catch(e){}
+          }
           
           const opponentColor = aiColor === 'w' ? 'b' : 'w';
           let opponentKingSquare = null;
@@ -1187,13 +1225,17 @@ export default function App() {
           }
 
           if (target && (target.type === 'k' || target.type === 'q')) {
-            // 🔥 AI 로직에도 순간이동식 엔진 우회 포획 적용
             const mover = currentGame.get(move.from);
             currentGame.remove(move.to);
             currentGame.remove(move.from);
             currentGame.put(mover, move.to);
           } else {
-            currentGame.move(move);
+            // 엔진 우회 강제이동 (이것도 예외 방지를 위해 무조건 강제 적용)
+            const mover = currentGame.get(move.from);
+            currentGame.remove(move.to);
+            currentGame.remove(move.from);
+            if (mover.type === 'p' && (move.to[1] === '1' || move.to[1] === '8')) mover.type = 'q';
+            currentGame.put(mover, move.to);
           }
 
           let nextFen = currentGame.fen();
