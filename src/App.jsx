@@ -448,7 +448,7 @@ export default function App() {
       // REVERSE 동기화 수신
       if (data.type === 'REVERSE') {
         setBoardOrientation(data.boardOrientation || 'white');
-        setMyColor(prev => prev === 'w' ? 'b' : 'w'); // P2P 리버스시 색상 반전
+        setMyColor(prev => prev === 'w' ? 'b' : 'w');
         setActiveCard(data.activeCard || null);
         setMovesRemaining(0);
         return;
@@ -900,6 +900,7 @@ export default function App() {
     }
   }, [selectedRevivePiece, canControlCurrentTurn, getDeadPieces, finishRevive, showToast, syncState]);
 
+  /* 🔥 [수정] AI 동기화 레이스 컨디션 방지를 위해 setTimeout 제거 후 반환값 처리로 변경 */
   const handleAIRevive = useCallback((maxPoints, currentFen) => {
     try {
       const current = stateRef.current;
@@ -962,27 +963,27 @@ export default function App() {
         capturedTargets: captured
       });
 
-      setTimeout(() => { endTurn(newFen); }, 450);
+      return newFen;
     } catch (e) {
       console.error('[AI REVIVE]', e);
       setActiveCard(null);
       setMovesRemaining(0);
       setRevivePoints(0);
-      endTurn(currentFen);
+      return currentFen;
     }
-  }, [getDeadPieces, endTurn, syncState]);
+  }, [getDeadPieces, syncState]);
 
   /* =======================================================
      WILD 처리
      ======================================================= */
-  const handleWildCard = useCallback(currentFen => {
+  const handleWildCard = useCallback((currentFen, isAI = false) => {
     const currentGame = new Chess(currentFen);
 
     if (!currentGame.isCheckmate()) {
       showToast('와일드는 체크메이트 상태에서만 3턴 롤백이 가능합니다.');
       setMovesRemaining(2);
       syncState({ movesRemaining: 2 });
-      return;
+      return currentFen;
     }
 
     showToast('Wild! 최근 3턴을 롤백합니다.');
@@ -1015,7 +1016,10 @@ export default function App() {
       toast: 'Wild로 3턴 전으로 롤백되었습니다.'
     });
 
-    setTimeout(() => { endTurn(newFen); }, 1200);
+    if (!isAI) {
+      setTimeout(() => { endTurn(newFen); }, 1200);
+    }
+    return newFen;
   }, [fenHistory, captureHistory, endTurn, showToast, syncState]);
 
   /* =======================================================
@@ -1045,14 +1049,12 @@ export default function App() {
     setRevivePoints(0);
     setSelectedRevivePiece(null);
 
-    // Number
     if (card.type === 'number') {
       setMovesRemaining(card.value);
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: card.value, revivePoints: 0 });
       return;
     }
 
-    // Skip
     if (card.type === 'skip') {
       setMovesRemaining(0);
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
@@ -1061,7 +1063,6 @@ export default function App() {
       return;
     }
 
-    // Reverse
     if (card.type === 'reverse') {
       const newOrientation = current.boardOrientation === 'white' ? 'black' : 'white';
       setBoardOrientation(newOrientation);
@@ -1084,17 +1085,15 @@ export default function App() {
       return;
     }
 
-    // Draw
     if (card.type === 'draw') {
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0, revivePoints: card.value });
       startRevive(card, current.fen);
       return;
     }
 
-    // Wild
     if (card.type === 'wild') {
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
-      handleWildCard(current.fen);
+      handleWildCard(current.fen, false);
     }
   }, [canControlCurrentTurn, mode, myColor, endTurn, startRevive, handleWildCard, showToast, syncState, sendMessage]);
 
@@ -1138,7 +1137,6 @@ export default function App() {
     let nextGame = currentGame;
     const remaining = current.movesRemaining - 1;
 
-    // 포획 (킹/퀸 특수처리 포함)
     if (targetPiece && targetPiece.color !== current.unoTurnColor && (targetPiece.type === 'k' || targetPiece.type === 'q')) {
       if (current.capturedTargets[targetPiece.color]?.[targetPiece.type]) {
         showToast(`이미 잡힌 ${PIECE_NAMES[targetPiece.type]}입니다.`, 'error');
@@ -1165,7 +1163,6 @@ export default function App() {
       const nextCaptured = cloneCaptured(current.capturedTargets);
       nextCaptured[targetPiece.color][targetPiece.type] = true;
 
-      // 🔥 [수정됨] 킹이 잡혔을 경우 강제 이동 처리
       if (targetPiece.type === 'k') {
         currentGame.remove(targetSquare);
         const move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
@@ -1182,7 +1179,6 @@ export default function App() {
 
       let nextFen = nextGame.fen();
       
-      // 연속 이동시 체스.js 내장 턴을 다시 내 턴으로 교체하여 state를 동기화 시킴 (강제유지 인라인화)
       if (remaining > 0) {
         const parts = nextFen.split(' ');
         parts[1] = current.unoTurnColor;
@@ -1220,11 +1216,9 @@ export default function App() {
       return true;
     }
 
-    // 일반 이동
     try {
       let move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
 
-      // UNO Chess 특수: 킹이 체크 상태라도 우회 이동 허용
       if (move === null && currentGame.isCheck()) {
         const relaxed = new Chess(current.fen);
         let ownKingSquare = null;
@@ -1261,7 +1255,6 @@ export default function App() {
       let nextFen = currentGame.fen();
       nextGame = currentGame;
 
-      // 강제 턴 유지 (문자열 직접 교체)
       if (remaining > 0) {
         const parts = nextFen.split(' ');
         parts[1] = current.unoTurnColor;
@@ -1289,7 +1282,7 @@ export default function App() {
   }, [canControlCurrentTurn, showToast, endTurn, syncState]);
 
   /* =======================================================
-     AI Effect 전면 개편 (async/await)
+     🔥 AI Effect 전면 개편 (Race Condition 및 멈춤(Freeze) 원천 차단)
      ======================================================= */
   useEffect(() => {
     const current = stateRef.current;
@@ -1328,14 +1321,12 @@ export default function App() {
           if (card.type === 'number') {
             setMovesRemaining(card.value);
             showToast(`AI 카드: ${card.name}`);
-            isTransitioning.current = false; // 곧바로 풀어주어 재실행(이동) 유도
-            return;
+            return; // finally 블록에서 자동으로 락이 해제되고 리렌더링 되어 다음 턴(이동 로직) 발동
           }
           if (card.type === 'skip') {
             showToast('AI 카드: Skip');
             await wait(700);
             endTurn(latest.fen);
-            isTransitioning.current = false;
             return;
           }
           if (card.type === 'reverse') {
@@ -1345,37 +1336,69 @@ export default function App() {
             await wait(700);
             setActiveCard(null);
             setMovesRemaining(0);
-            // AI에서 리버스는 방향만 바꾸고 턴은 넘겨줌 (myColor 불변)
             endTurn(latest.fen, { boardOrientation: newOrientation });
-            isTransitioning.current = false;
             return;
           }
           if (card.type === 'draw') {
             showToast(`AI 카드: Draw ${card.value}+`);
-            handleAIRevive(card.value, latest.fen);
-            isTransitioning.current = false;
+            const newFen = handleAIRevive(card.value, latest.fen);
+            await wait(450);
+            endTurn(newFen);
             return;
           }
           if (card.type === 'wild') {
             showToast('AI 카드: Wild');
-            handleWildCard(latest.fen);
-            isTransitioning.current = false;
+            const newFen = handleWildCard(latest.fen, true);
+            await wait(1200);
+            endTurn(newFen);
             return;
           }
-          isTransitioning.current = false;
           return;
         }
 
         // 2. 이동 로직
         if (latest.activeCard?.type === 'number' && latest.movesRemaining > 0) {
           const currentGame = new Chess(latest.fen);
-          const legalMoves = currentGame.moves({ verbose: true });
+          
+          // 표준 룰상 움직일 수 있는 경로 탐색
+          let legalMoves = currentGame.moves({ verbose: true });
+          
+          // 🔥 [추가] chess.js는 원래 상대 킹을 포획하는 경로를 계산하지 않으므로 수동으로 공격 경로 추가 (핵심)
+          const opponentColor = aiColor === 'w' ? 'b' : 'w';
+          let opponentKingSquare = null;
+          for (let r = 1; r <= 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const sq = String.fromCharCode(97 + c) + r;
+              const p = currentGame.get(sq);
+              if (p && p.type === 'k' && p.color === opponentColor) {
+                opponentKingSquare = sq;
+                break;
+              }
+            }
+            if (opponentKingSquare) break;
+          }
+
+          if (opponentKingSquare) {
+             const relaxed = new Chess(latest.fen);
+             relaxed.remove(opponentKingSquare);
+             relaxed.put({type: 'q', color: opponentColor}, opponentKingSquare); // 퀸으로 위장하여 공격 가능 여부 판별
+             const relaxedMoves = relaxed.moves({ verbose: true });
+             const attacks = relaxedMoves.filter(m => m.to === opponentKingSquare && relaxed.get(m.from)?.color === aiColor);
+             attacks.forEach(att => {
+                legalMoves.push({
+                   ...att,
+                   captured: 'k'
+                });
+             });
+          }
+
+          // 최종적으로 AI의 기물만 필터링
           const aiMoves = legalMoves.filter(m => currentGame.get(m.from)?.color === aiColor);
 
+          // 만약 어떠한 이유로든 움직일 기물이 하나도 없다면 턴 스킵
           if (aiMoves.length === 0) {
             showToast('AI가 움직일 수 있는 기물이 없어 턴을 넘깁니다.');
             endTurn(latest.fen);
-            isTransitioning.current = false;
             return;
           }
 
@@ -1397,7 +1420,7 @@ export default function App() {
             }
           }
 
-          // 🔥 [수정됨] AI가 상대방의 킹을 잡는 경우
+          // 상대 킹 강제 포획 실행
           if (target && target.type === 'k') {
             currentGame.remove(move.to);
             const res = currentGame.move(move);
@@ -1423,16 +1446,31 @@ export default function App() {
             setGame(nextGame);
             setFen(nextFen);
             syncState({ gameOverMsg: msg, capturedTargets: nextCaptured, movesRemaining: 0, activeCard: null, fen: nextFen });
-            isTransitioning.current = false;
             return;
           }
 
+          // 연속 이동 카드일 경우 턴 강제 유지
           if (remaining > 0) {
             const parts = nextFen.split(' ');
-            parts[1] = latest.unoTurnColor;
-            parts[3] = '-';
-            nextFen = parts.join(' ');
-            nextGame = new Chess(nextFen);
+            parts[1] = latest.unoTurnColor; // 강제로 내 턴 유지
+            parts[3] = '-'; // 앙파상 초기화
+            const tempFen = parts.join(' ');
+            const testGame = new Chess();
+            
+            try {
+              // 엔진이 불가능한 체스 상태(상대방이 체크 상태인데 내 턴 등)로 판단하여 에러를 던질 수 있음
+              if (testGame.load(tempFen)) {
+                nextFen = tempFen;
+                nextGame = testGame;
+              } else {
+                // 강제 유지가 실패할 경우 조기 턴 종료로 멈춤 방지
+                endTurn(currentGame.fen(), { capturedTargets: nextCaptured });
+                return;
+              }
+            } catch (e) {
+              endTurn(currentGame.fen(), { capturedTargets: nextCaptured });
+              return;
+            }
           }
 
           setGame(nextGame);
@@ -1444,15 +1482,22 @@ export default function App() {
 
           if (remaining > 0) {
             syncState({ fen: nextFen, movesRemaining: remaining, capturedTargets: nextCaptured });
-            isTransitioning.current = false; // 락을 풀어주어 바로 다음 이동 재호출 유도
           } else {
             endTurn(nextFen, { capturedTargets: nextCaptured });
-            isTransitioning.current = false;
           }
+          return;
         }
+
+        // 3. 예외 상황 방어: 카드가 발동되었으나 남은 턴 횟수가 0 이하로 꼬여있을 때 강제 턴 넘김
+        if (latest.activeCard && latest.movesRemaining <= 0) {
+          endTurn(latest.fen);
+        }
+
       } catch (e) {
-        console.error('[AI]', e);
-        endTurn(latest.fen);
+        console.error('[AI 로직 에러]', e);
+        endTurn(latest.fen); // 에러 발생 시 최후 수단으로 무조건 턴 종료
+      } finally {
+        // 🔥 [가장 중요] 어떤 예외 상황, return, await 지연이 발생하더라도 블록을 빠져나갈 땐 무조건 락이 풀리도록 보장
         isTransitioning.current = false;
       }
     };
