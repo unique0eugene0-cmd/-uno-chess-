@@ -12,3 +12,40 @@ body {
 
 * { box-sizing: border-box; }
 button, input { font: inherit; }
+
+.grave-piece {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  border: 1px solid #525252;
+  background: #262626;
+  color: #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transition: transform .15s ease, border-color .15s ease, opacity .15s ease, background .15s ease;
+}
+
+.grave-piece-available {
+  cursor: pointer;
+}
+
+.grave-piece-available:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: #facc15;
+  background: #3f3f46;
+}
+
+.grave-piece-selected {
+  border: 2px solid #facc15;
+  background: rgba(161, 98, 7, .45);
+  box-shadow: 0 0 18px rgba(250, 204, 21, .35);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.grave-piece-disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
