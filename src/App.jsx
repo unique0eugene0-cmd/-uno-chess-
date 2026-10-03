@@ -110,7 +110,7 @@ const TutorialModal = ({ onClose }) => (
               <span className="text-3xl font-black text-cyan-400 leading-none mt-1">+2</span>
               <div>
                 <strong className="text-white block mb-1 text-lg">드로우 (Draw 2+)</strong>
-                잡혀서 죽은 기물을 포인트에 맞게 내 진영 빈칸에 무작위로 부활시킵니다.
+                잡혀서 죽은 기물을 포인트에 맞게 무덤에서 직접 골라, 내 진영의 2랭크 빈칸에 부활시킵니다.
               </div>
             </div>
             <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-700 flex items-start gap-4">
@@ -149,6 +149,8 @@ export default function App() {
   const [deck, setDeck] = useState(generateDeck);
   const [activeCard, setActiveCard] = useState(null);
   const [movesRemaining, setMovesRemaining] = useState(0);
+  const [revivePoints, setRevivePoints] = useState(0);
+  const [selectedRevivePiece, setSelectedRevivePiece] = useState(null);
   
   const [myColor, setMyColor] = useState('w');
   const [boardOrientation, setBoardOrientation] = useState('white');
@@ -526,63 +528,185 @@ export default function App() {
     }
   }, [unoTurnColor, endTurn, showToast, syncState]);
 
-  const handleRevive = useCallback((maxPoints, currentFen, card = null) => {
-    const points = { 'p': 1, 'n': 3, 'b': 3, 'r': 3, 'q': 4 };
-    const initialCount = { 'p': 8, 'n': 2, 'b': 2, 'r': 2, 'q': 1 };
-    const currentCount = { 'p': 0, 'n': 0, 'b': 0, 'r': 0, 'q': 0 };
-
+  // +카드: 죽은 기물을 플레이어가 직접 골라서 부활시킵니다.
+  // +2 = 2포인트. 폰 1, 나이트/비숍/룩 3, 퀸 4 포인트입니다.
+  const getDeadPieces = useCallback((currentFen = fen) => {
+    const points = { p: 1, n: 3, b: 3, r: 3, q: 4, k: 4 };
+    const initialCount = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
+    const currentCount = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
     const currentGame = new Chess(currentFen);
-    currentGame.board().forEach(row => {
-      row.forEach(piece => {
-        if (piece && piece.color === unoTurnColor) currentCount[piece.type]++;
-      });
-    });
 
-    let revivedPoints = 0;
-    const piecesToRevive = [];
-    const types = ['q', 'r', 'b', 'n', 'p'];
-    for (const type of types) {
+    currentGame.board().forEach(row => row.forEach(piece => {
+      if (piece && piece.color === unoTurnColor) currentCount[piece.type]++;
+    }));
+
+    // 킹은 chess.js 특성상 실제 FEN에서 제거하지 않으므로 캡처 기록을 우선합니다.
+    const dead = [];
+    const typeOrder = ['q', 'r', 'b', 'n', 'p', 'k'];
+    typeOrder.forEach(type => {
       let missing = initialCount[type] - currentCount[type];
-      while (missing > 0 && revivedPoints + points[type] <= maxPoints) {
-        piecesToRevive.push(type);
-        revivedPoints += points[type];
-        missing--;
+      if (type === 'k' && capturedTargets[unoTurnColor]?.k) missing = 1;
+      if (type === 'q' && capturedTargets[unoTurnColor]?.q) missing = Math.max(1, missing);
+      for (let i = 0; i < Math.max(0, missing); i++) {
+        dead.push({ type, points: points[type] });
       }
-    }
+    });
+    return dead;
+  }, [fen, unoTurnColor, capturedTargets]);
 
-    if (piecesToRevive.length === 0) {
-      showToast("부활시킬 죽은 기물이 없습니다. 1회 이동합니다.", "info");
+  const getReviveSquares = useCallback((currentFen = fen) => {
+    const currentGame = new Chess(currentFen);
+    const squares = [];
+    // '내 진영 기준 2랭크': 백 = 1,2랭크 / 흑 = 7,8랭크
+    const ranks = unoTurnColor === 'w' ? [1, 2] : [7, 8];
+    ranks.forEach(rank => {
+      for (let file = 0; file < 8; file++) {
+        const square = String.fromCharCode(97 + file) + rank;
+        if (!currentGame.get(square)) squares.push(square);
+      }
+    });
+    return squares;
+  }, [fen, unoTurnColor]);
+
+  const finishRevive = useCallback(() => {
+    if (!activeCard || activeCard.type !== 'draw') return;
+    setSelectedRevivePiece(null);
+    setRevivePoints(0);
+    const currentFen = stateRef.current.fen;
+    setActiveCard(null);
+    setMovesRemaining(0);
+    endTurn(currentFen);
+  }, [activeCard, endTurn]);
+
+  const startRevive = useCallback((card, currentFen) => {
+    const deadPieces = getDeadPieces(currentFen);
+    if (deadPieces.length === 0) {
+      showToast("무덤에 부활 가능한 기물이 없습니다. 1회 이동합니다.", "info");
       setMovesRemaining(1);
-      syncState({ activeCard: card || stateRef.current.activeCard, movesRemaining: 1 });
+      syncState({ activeCard: card, movesRemaining: 1 });
+      return;
+    }
+    setRevivePoints(card.value);
+    setSelectedRevivePiece(null);
+    syncState({ activeCard: card, movesRemaining: 0 });
+    showToast(`+${card.value}: 무덤에서 기물을 선택하고 내 진영 2랭크에 놓으세요.`, "info");
+  }, [getDeadPieces, showToast, syncState]);
+
+  const handleRevivePieceSelect = useCallback((type) => {
+    if (!activeCard || activeCard.type !== 'draw' || revivePoints <= 0) return;
+    const deadPieces = getDeadPieces(stateRef.current.fen);
+    const available = deadPieces.find(piece => piece.type === type && piece.points <= revivePoints);
+    if (!available) {
+      showToast(`현재 ${revivePoints}포인트로 부활할 수 없는 기물입니다.`, "error");
+      return;
+    }
+    setSelectedRevivePiece(type);
+    showToast(`${type === 'p' ? '폰' : type === 'n' ? '나이트' : type === 'b' ? '비숍' : type === 'r' ? '룩' : type === 'q' ? '퀸' : '킹'} 선택됨. 내 진영 2랭크의 빈칸을 클릭하세요.`, "info");
+  }, [activeCard, revivePoints, getDeadPieces, showToast]);
+
+  const handleReviveSquareClick = useCallback((square) => {
+    if (!activeCard || activeCard.type !== 'draw' || !selectedRevivePiece) return;
+    if (revivePoints <= 0) return;
+
+    const currentFen = stateRef.current.fen;
+    const currentGame = new Chess(currentFen);
+    const rank = Number(square[1]);
+    const validRank = unoTurnColor === 'w' ? (rank === 1 || rank === 2) : (rank === 7 || rank === 8);
+    if (!validRank) {
+      showToast("내 진영의 2랭크 안에서만 부활시킬 수 있습니다.", "error");
+      return;
+    }
+    if (currentGame.get(square)) {
+      showToast("빈 칸에만 부활시킬 수 있습니다.", "error");
       return;
     }
 
-    const emptySquares = [];
-    const rankStart = unoTurnColor === 'w' ? 4 : 0;
-    const rankEnd = unoTurnColor === 'w' ? 8 : 4;
-    const board = currentGame.board();
-
-    for (let r = rankStart; r < rankEnd; r++) {
-      for (let c = 0; c < 8; c++) {
-        if (board[r][c] === null) {
-          emptySquares.push(String.fromCharCode(97 + c) + (8 - r));
-        }
-      }
+    const points = { p: 1, n: 3, b: 3, r: 3, q: 4, k: 4 };
+    const cost = points[selectedRevivePiece];
+    if (cost > revivePoints) {
+      showToast(`포인트가 부족합니다. 필요한 포인트: ${cost}`, "error");
+      return;
     }
 
-    emptySquares.sort(() => Math.random() - 0.5);
-    piecesToRevive.forEach((type, index) => {
-      if (emptySquares[index]) currentGame.put({ type, color: unoTurnColor }, emptySquares[index]);
+    const deadPieces = getDeadPieces(currentFen);
+    const deadIndex = deadPieces.findIndex(piece => piece.type === selectedRevivePiece && piece.points <= revivePoints);
+    if (deadIndex === -1) {
+      showToast("해당 기물이 무덤에 없습니다.", "error");
+      setSelectedRevivePiece(null);
+      return;
+    }
+
+    try {
+      currentGame.put({ type: selectedRevivePiece, color: unoTurnColor }, square);
+      const newFen = currentGame.fen();
+      const nextPoints = revivePoints - cost;
+
+      setGame(currentGame);
+      setFen(newFen);
+      setFenHistory(prev => [...prev, newFen]);
+      setRevivePoints(nextPoints);
+      setSelectedRevivePiece(null);
+      syncState({ fen: newFen, activeCard, movesRemaining: 0 });
+
+      if (nextPoints <= 0) {
+        showToast("부활 포인트를 모두 사용했습니다! 턴이 종료됩니다.", "info");
+        setTimeout(() => finishRevive(), 350);
+      } else {
+        const nextDead = getDeadPieces(newFen).filter(piece => piece.points <= nextPoints);
+        if (nextDead.length === 0) {
+          showToast("남은 포인트로 부활 가능한 기물이 없습니다. 턴을 종료하세요.", "info");
+        } else {
+          showToast(`${cost}포인트 사용! ${nextPoints}포인트 남음.`, "info");
+        }
+      }
+    } catch (e) {
+      console.error('[부활] 기물 배치 실패:', e);
+      showToast("이 칸에는 기물을 부활시킬 수 없습니다.", "error");
+    }
+  }, [activeCard, selectedRevivePiece, revivePoints, unoTurnColor, getDeadPieces, syncState, showToast, finishRevive]);
+
+  const handleAIRevive = useCallback((maxPoints, currentFen) => {
+    const currentGame = new Chess(currentFen);
+    const points = { p: 1, n: 3, b: 3, r: 3, q: 4, k: 4 };
+    let remaining = maxPoints;
+    const deadPieces = getDeadPieces(currentFen);
+    const ranks = unoTurnColor === 'w' ? [1, 2] : [7, 8];
+
+    const emptySquares = [];
+    ranks.forEach(rank => {
+      for (let file = 0; file < 8; file++) {
+        const square = String.fromCharCode(97 + file) + rank;
+        if (!currentGame.get(square)) emptySquares.push(square);
+      }
     });
+
+    // AI는 비용이 허용되는 범위에서 비싼 기물부터 부활시키고, 위치는 2랭크 안에서 무작위로 정합니다.
+    const reviveTypes = ['q', 'r', 'b', 'n', 'p', 'k'];
+    for (const type of reviveTypes) {
+      const index = deadPieces.findIndex(piece => piece.type === type);
+      while (index !== -1 && remaining >= points[type] && emptySquares.length > 0) {
+        const squareIndex = Math.floor(Math.random() * emptySquares.length);
+        const square = emptySquares.splice(squareIndex, 1)[0];
+        currentGame.put({ type, color: unoTurnColor }, square);
+        remaining -= points[type];
+        const nextIndex = deadPieces.findIndex(piece => piece.type === type);
+        if (nextIndex === -1) break;
+        deadPieces.splice(nextIndex, 1);
+        if (deadPieces.filter(piece => piece.type === type).length === 0) break;
+      }
+    }
 
     const newFen = currentGame.fen();
     setGame(currentGame);
     setFen(newFen);
     setFenHistory(prev => [...prev, newFen]);
-    showToast(`기물 부활 완료! 턴이 종료됩니다.`);
-    syncState({ fen: newFen, activeCard: card || stateRef.current.activeCard, movesRemaining: 0 });
-    setTimeout(() => endTurn(newFen), 2500);
-  }, [unoTurnColor, endTurn, showToast, syncState]);
+    setRevivePoints(0);
+    setSelectedRevivePiece(null);
+    setActiveCard(null);
+    setMovesRemaining(0);
+    syncState({ fen: newFen, activeCard: null, movesRemaining: 0 });
+    setTimeout(() => endTurn(newFen), 500);
+  }, [getDeadPieces, unoTurnColor, endTurn, syncState]);
 
   const handleWildCard = useCallback((currentFen) => {
     const currentGame = new Chess(currentFen);
@@ -667,12 +791,28 @@ export default function App() {
       }, 1200);
     } else if (card.type === 'draw') {
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
-      handleRevive(card.value, fen, card);
+      startRevive(card, fen);
     } else if (card.type === 'wild') {
       syncState({ activeCard: card, deck: currentDeck, movesRemaining: 0 });
       handleWildCard(fen);
     }
-  }, [deck, gameOverMsg, activeCard, fen, unoTurnColor, myColor, mode, boardOrientation, endTurn, handleRevive, handleWildCard, showToast, syncState, sendMessage]);
+  }, [deck, gameOverMsg, activeCard, fen, unoTurnColor, myColor, mode, boardOrientation, endTurn, startRevive, handleWildCard, showToast, syncState, sendMessage]);
+
+  const onSquareClick = (square) => {
+    if (activeCard?.type === 'draw' && revivePoints > 0 && selectedRevivePiece) {
+      handleReviveSquareClick(square);
+    }
+  };
+
+  const reviveSquareStyles = {};
+  if (activeCard?.type === 'draw' && revivePoints > 0 && selectedRevivePiece) {
+    getReviveSquares(fen).forEach(square => {
+      reviveSquareStyles[square] = {
+        boxShadow: 'inset 0 0 0 5px rgba(250, 204, 21, 0.95)',
+        backgroundColor: 'rgba(250, 204, 21, 0.22)'
+      };
+    });
+  }
 
   const onDrop = (sourceSquare, targetSquare) => {
     if (gameOverMsg) return false;
@@ -915,7 +1055,7 @@ export default function App() {
             return;
           } else if (card.type === 'draw') {
             showToast(`AI 카드: Draw ${card.value}+`);
-            handleRevive(card.value, current.fen, current.activeCard);
+            handleAIRevive(card.value, current.fen);
             isTransitioning.current = false;
             return;
           } else if (card.type === 'wild') {
@@ -1226,7 +1366,9 @@ export default function App() {
             <Chessboard 
               position={fen} 
               onPieceDrop={onDrop}
+              onSquareClick={onSquareClick}
               boardOrientation={boardOrientation}
+              customSquareStyles={reviveSquareStyles}
               customDarkSquareStyle={{ backgroundColor: '#475569' }}
               customLightSquareStyle={{ backgroundColor: '#cbd5e1' }}
               animationDuration={200}
@@ -1236,7 +1378,41 @@ export default function App() {
 
         <div className="w-full max-w-[400px] flex flex-col gap-4">
           <div className="bg-neutral-800 p-6 rounded-xl border border-neutral-700 shadow-xl flex flex-col items-center flex-1 min-h-[500px]">
-            <h2 className="text-xl font-bold mb-8 text-neutral-300 uppercase tracking-widest border-b border-neutral-700 pb-2 w-full text-center">
+            <div className="w-full mb-5 rounded-xl border border-neutral-700 bg-neutral-900/70 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-black text-sm text-neutral-300">🪦 내 무덤</h3>
+                {activeCard?.type === 'draw' && <span className="text-cyan-300 font-black text-sm">+{revivePoints} 포인트</span>}
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[42px]">
+                {getDeadPieces(fen).length === 0 ? (
+                  <span className="text-xs text-neutral-500">잡힌 기물이 없습니다.</span>
+                ) : getDeadPieces(fen).map((piece, index) => {
+                  const label = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛', k:'♚' }[piece.type];
+                  const name = { p:'폰', n:'나이트', b:'비숍', r:'룩', q:'퀸', k:'킹' }[piece.type];
+                  const selectable = activeCard?.type === 'draw' && revivePoints >= piece.points;
+                  const selected = selectedRevivePiece === piece.type;
+                  return (
+                    <button
+                      key={`${piece.type}-${index}`}
+                      onClick={() => selectable && handleRevivePieceSelect(piece.type)}
+                      disabled={!selectable}
+                      title={`${name} · ${piece.points}포인트`}
+                      className={`grave-piece ${selected ? 'grave-piece-selected' : ''} ${selectable ? 'grave-piece-available' : 'grave-piece-disabled'}`}
+                    >
+                      <span className="text-2xl leading-none">{label}</span>
+                      <span className="text-[10px] font-bold">{piece.points}P</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {activeCard?.type === 'draw' && revivePoints > 0 && (
+                <div className="mt-3 text-center text-xs text-yellow-300 font-bold">
+                  {selectedRevivePiece ? '✨ 선택한 기물을 내 진영 2랭크의 빈칸에 놓으세요.' : '👆 부활할 죽은 기물을 선택하세요.'}
+                </div>
+              )}
+            </div>
+
+            <h2 className="text-xl font-bold mb-4 text-neutral-300 uppercase tracking-widest border-b border-neutral-700 pb-2 w-full text-center">
               UNO 덱 영역
             </h2>
             
@@ -1283,6 +1459,15 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeCard?.type === 'draw' && revivePoints > 0 && (
+                <button
+                  onClick={finishRevive}
+                  className="mt-5 px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-black shadow-lg transition-all"
+                >
+                  부활 종료 · 남은 {revivePoints}P 사용하지 않기
+                </button>
               )}
             </div>
             
