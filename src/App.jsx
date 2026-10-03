@@ -1462,6 +1462,7 @@ export default function App() {
           </div>
           </div>
         </div>
+        </div>
 
         <div className="w-full max-w-[400px] flex flex-col gap-4">
           <div className="bg-neutral-800 p-6 rounded-xl border border-neutral-700 shadow-xl flex flex-col items-center flex-1 min-h-[500px]">
