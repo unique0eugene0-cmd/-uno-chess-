@@ -590,14 +590,15 @@ export default function App() {
     } catch (e) { console.error('[END TURN]', e); }
   }, [syncState]);
 
-  // 🔥 [버그 수정 2 완료] 오직 내 색상(colorOverride)에 해당하는 죽은 기물만 정확히 산출
-  const getDeadPieces = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, colorOverride = stateRef.current.unoTurnColor) => {
+  // 🔥 [버그 2 수정 완료] 내 무덤은 언제나 '내 진영 색상(myColor)' 기준 고정
+  const getDeadPieces = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, targetColor = null) => {
+    const colorToCheck = targetColor || stateRef.current.myColor;
     const currentGame = createSafeGame(currentFen);
     const currentCount = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
 
     currentGame.board().forEach(row => {
       row.forEach(piece => {
-        if (piece && piece.color === colorOverride && currentCount[piece.type] !== undefined) {
+        if (piece && piece.color === colorToCheck && currentCount[piece.type] !== undefined) {
           currentCount[piece.type]++;
         }
       });
@@ -606,8 +607,8 @@ export default function App() {
     const dead = [];
     PIECE_ORDER.forEach(type => {
       let missing = INITIAL_COUNT[type] - currentCount[type];
-      if (type === 'k' && capturedOverride?.[colorOverride]?.k) missing = 1;
-      if (type === 'q' && capturedOverride?.[colorOverride]?.q) missing = Math.max(1, missing);
+      if (type === 'k' && capturedOverride?.[colorToCheck]?.k) missing = 1;
+      if (type === 'q' && capturedOverride?.[colorToCheck]?.q) missing = Math.max(1, missing);
       for (let i = 0; i < Math.max(0, missing); i++) {
         dead.push({ type, points: PIECE_POINTS[type] });
       }
@@ -615,7 +616,7 @@ export default function App() {
     return dead;
   }, []);
 
-  const getReviveSquares = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, colorOverride = stateRef.current.unoTurnColor) => {
+  const getReviveSquares = useCallback((currentFen = stateRef.current.fen, capturedOverride = stateRef.current.capturedTargets, colorOverride = stateRef.current.myColor) => {
     const currentGame = createSafeGame(currentFen);
     const squares = [];
     const ranks = colorOverride === 'w' ? [1, 2] : [7, 8];
@@ -644,8 +645,8 @@ export default function App() {
 
   const startRevive = useCallback((card, currentFen, currentDeck) => {
     const currentCaptured = stateRef.current.capturedTargets;
-    const currentColor = stateRef.current.unoTurnColor;
-    const deadPieces = getDeadPieces(currentFen, currentCaptured, currentColor);
+    const myColorVal = stateRef.current.myColor;
+    const deadPieces = getDeadPieces(currentFen, currentCaptured, myColorVal);
 
     if (deadPieces.length === 0) {
       showToast('부활할 기물이 없어 1회 이동합니다.');
@@ -672,10 +673,10 @@ export default function App() {
 
   const handleRevivePieceSelect = useCallback(type => {
     const current = stateRef.current;
-    if (!current.activeCard || (current.activeCard.type !== 'draw') || current.revivePoints <= 0) return;
+    if (!current.activeCard || current.activeCard.type !== 'draw' || current.revivePoints <= 0) return;
     if (!canControlCurrentTurn()) return;
 
-    const deadPieces = getDeadPieces(current.fen, current.capturedTargets, current.unoTurnColor);
+    const deadPieces = getDeadPieces(current.fen, current.capturedTargets, current.myColor);
     const available = deadPieces.find(piece => piece.type === type && piece.points <= current.revivePoints);
 
     if (!available) { showToast(`현재 ${current.revivePoints}P로 부활할 수 없는 기물입니다.`, 'error'); return; }
@@ -691,19 +692,19 @@ export default function App() {
 
     const currentGame = createSafeGame(current.fen);
     const rank = Number(square[1]);
-    const validRank = current.unoTurnColor === 'w' ? rank === 1 || rank === 2 : rank === 7 || rank === 8;
+    const validRank = current.myColor === 'w' ? rank === 1 || rank === 2 : rank === 7 || rank === 8;
 
     if (!validRank) { showToast('내 진영의 1~2랭크에서만 부활할 수 있습니다.', 'error'); return; }
 
     const squarePiece = currentGame.get(square);
-    const kingPlaceholder = squarePiece?.type === 'k' && squarePiece?.color === current.unoTurnColor && current.capturedTargets?.[current.unoTurnColor]?.k;
+    const kingPlaceholder = squarePiece?.type === 'k' && squarePiece?.color === current.myColor && current.capturedTargets?.[current.myColor]?.k;
 
     if (squarePiece && !kingPlaceholder) { showToast('빈 칸에만 부활할 수 있습니다.', 'error'); return; }
 
     const cost = PIECE_POINTS[selectedRevivePiece];
     if (cost > current.revivePoints) { showToast(`포인트가 부족합니다. ${cost}P가 필요합니다.`, 'error'); return; }
 
-    const deadPieces = getDeadPieces(current.fen, current.capturedTargets, current.unoTurnColor);
+    const deadPieces = getDeadPieces(current.fen, current.capturedTargets, current.myColor);
     const deadIndex = deadPieces.findIndex(piece => piece.type === selectedRevivePiece && piece.points <= current.revivePoints);
 
     if (deadIndex === -1) { showToast('해당 기물이 무덤에 없습니다.', 'error'); setSelectedRevivePiece(null); return; }
@@ -714,18 +715,18 @@ export default function App() {
           for (let fileNo = 0; fileNo < 8; fileNo++) {
             const sq = String.fromCharCode(97 + fileNo) + rankNo;
             const piece = currentGame.get(sq);
-            if (piece?.type === 'k' && piece.color === current.unoTurnColor) { currentGame.remove(sq); }
+            if (piece?.type === 'k' && piece.color === current.myColor) { currentGame.remove(sq); }
           }
         }
       }
 
       if (kingPlaceholder) currentGame.remove(square);
-      currentGame.put({ type: selectedRevivePiece, color: current.unoTurnColor }, square);
+      currentGame.put({ type: selectedRevivePiece, color: current.myColor }, square);
 
       const newFen = currentGame.fen();
       const nextPoints = current.revivePoints - cost;
       const nextCaptured = cloneCaptured(current.capturedTargets);
-      nextCaptured[current.unoTurnColor][selectedRevivePiece] = false;
+      nextCaptured[current.myColor][selectedRevivePiece] = false;
 
       setCapturedTargets(nextCaptured);
       setCaptureHistory(prev => [...prev, cloneCaptured(nextCaptured)]);
@@ -737,7 +738,7 @@ export default function App() {
 
       syncState({ fen: newFen, activeCard: current.activeCard, movesRemaining: 0, revivePoints: nextPoints, capturedTargets: nextCaptured });
 
-      const nextDead = getDeadPieces(newFen, nextCaptured, current.unoTurnColor);
+      const nextDead = getDeadPieces(newFen, nextCaptured, current.myColor);
 
       if (nextPoints <= 0) {
         showToast('부활 포인트를 모두 사용했습니다. 턴이 종료됩니다.');
@@ -930,12 +931,12 @@ export default function App() {
 
   const reviveSquareStyles = {};
   if (activeCard?.type === 'draw' && revivePoints > 0 && selectedRevivePiece) {
-    getReviveSquares(fen, capturedTargets, unoTurnColor).forEach(square => {
+    getReviveSquares(fen, capturedTargets, myColor).forEach(square => {
       reviveSquareStyles[square] = { boxShadow: 'inset 0 0 0 5px rgba(250,204,21,.95)', backgroundColor: 'rgba(250,204,21,.22)' };
     });
   }
 
-  // 🔥 [버그 수정 1 완료] 폰 프로모션 및 킹/퀸 포획 결함 완벽 해결
+  // 🔥 [버그 1 수정 완료] 폰 프로모션(승급)과 킹/퀸 포획 결함 완전 해결
   const onDrop = useCallback((sourceSquare, targetSquare) => {
     const current = stateRef.current;
     if (current.gameOverMsg) return false;
@@ -958,7 +959,7 @@ export default function App() {
         return false;
       }
 
-      // 길 검증용 가상 보드
+      // 길 검증 (가상 보드로 안전하게 체크)
       let canCapture = false;
       try {
         const test = createSafeGame(current.fen);
@@ -1022,13 +1023,13 @@ export default function App() {
       return true;
     }
 
-    // 일반 기물 이동 (프로모션 포함)
+    // 일반 기물 이동 (react-chessboard 드랍 및 프로모션 지원)
     let move = null;
     try {
       move = currentGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
     } catch (e) {}
 
-    // Phantom Move 우회 처리
+    // Phantom Move 우회 처리 (킹 부재 등으로 엔진이 거부할 때 강제 이동)
     if (!move) {
       const relaxed = createSafeGame(current.fen);
       
@@ -1454,7 +1455,7 @@ export default function App() {
     );
   }
 
-  const deadPieces = getDeadPieces(fen, capturedTargets, unoTurnColor);
+  const deadPieces = getDeadPieces(fen, capturedTargets, myColor);
 
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-100 font-sans flex flex-col">
