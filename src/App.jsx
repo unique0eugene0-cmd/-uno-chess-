@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './index.css';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import Peer from 'peerjs';
@@ -255,15 +254,7 @@ export default function App() {
       clearTimeout(timeoutId);
       isConnectingRef.current = false;
       setIsConnecting(false);
-      const type = err?.type || 'unknown';
-      const messageMap = {
-        'peer-unavailable': '방 코드를 찾을 수 없습니다. 코드를 다시 확인해 주세요.',
-        'network': 'PeerJS 서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.',
-        'socket-error': '온라인 서버 연결에 실패했습니다.',
-        'ssl-unavailable': '보안 연결(HTTPS/WSS)을 사용할 수 없습니다.',
-        'unavailable-id': '방 코드가 이미 사용 중입니다. 새로고침 후 다시 만들어 주세요.'
-      };
-      showToast(messageMap[type] || `P2P 오류: ${type}`, "error");
+      showToast(`P2P 오류: ${err?.type || err?.message || 'unknown'}`, "error");
     });
   };
 
@@ -307,67 +298,67 @@ export default function App() {
   };
 
   const setupConnection = (connection) => {
-    if (!connection) return;
-
     connection.on('open', () => {
       console.log('[P2P] 데이터 채널 오픈 성공!');
       setOpponentConnected(true);
-      showToast("상대방과 연결되었습니다!");
-      try { connection.send({ type: 'SYNC_REQUEST' }); } catch (e) {}
+      showToast("상대방이 대기실에 입장했습니다!");
     });
 
     connection.on('data', (data) => {
       if (!data || typeof data !== 'object') return;
 
-      if (data.type === 'SYNC_REQUEST') {
-        const current = stateRef.current;
-        try {
-          connection.send({
-            type: 'SYNC', fen: current.fen, activeCard: current.activeCard,
-            movesRemaining: current.movesRemaining, unoTurnColor: current.unoTurnColor,
-            deck: current.deck, gameOverMsg: current.gameOverMsg, boardOrientation: current.boardOrientation
-          });
-        } catch (e) {}
-        return;
-      }
-
       if (data.type === 'START_GAME') {
-        try {
-          const newGame = new Chess(data.fen || undefined);
-          setGame(newGame);
-          setFen(newGame.fen());
-          setFenHistory([newGame.fen()]);
-          if (Array.isArray(data.deck)) setDeck(data.deck);
-          if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
-          setBoardOrientation('white');
-          setGameOverMsg('');
-          setActiveCard(null);
-          setMovesRemaining(0);
-          setMode('p2p');
-          showToast("게임이 시작되었습니다!");
-        } catch (e) {
-          console.error('[P2P] START_GAME 오류:', e);
-          showToast("게임 시작 상태를 불러오지 못했습니다.", "error");
-        }
+        // 방장이 시작 버튼을 누르면 전달받은 초기 상태로 게임에 진입합니다.
+        const newGame = new Chess();
+        if (data.fen) newGame.load(data.fen);
+        setGame(newGame);
+        setFen(data.fen || newGame.fen());
+        if (data.deck) setDeck(data.deck);
+        if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
+        if (data.boardOrientation) setBoardOrientation(data.boardOrientation);
+        setGameOverMsg('');
+        setActiveCard(null);
+        setMovesRemaining(0);
+        setMode('p2p');
+        showToast("게임이 시작되었습니다!");
         return;
       }
 
       if (data.type === 'REVERSE') {
-        setBoardOrientation(prev => prev === 'white' ? 'black' : 'white');
+        // 리버스: 화면만 뒤집는 것이 아니라 실제 플레이어의 진영도 교체합니다.
+        // sender가 보낸 playerColor는 'sender가 리버스 후 가지게 된 색'입니다.
+        setBoardOrientation(data.boardOrientation || (prev => prev === 'white' ? 'black' : 'white'));
+        if (data.playerColor) {
+          setMyColor(data.playerColor === 'w' ? 'b' : 'w');
+        } else {
+          setMyColor(prev => prev === 'w' ? 'b' : 'w');
+        }
+        if (data.unoTurnColor) setUnoTurnColor(data.unoTurnColor);
+        if (data.fen) {
+          try {
+            const newGame = new Chess();
+            newGame.load(data.fen);
+            setGame(newGame);
+            setFen(data.fen);
+          } catch (e) {
+            console.error('[P2P] REVERSE FEN 오류:', e);
+          }
+        }
         return;
       }
 
       if (data.type === 'SYNC') {
         try {
           if (data.fen) {
-            const newGame = new Chess(data.fen);
+            const newGame = new Chess();
+            newGame.load(data.fen);
             setGame(newGame);
             setFen(data.fen);
           }
           if (data.activeCard !== undefined) setActiveCard(data.activeCard);
           if (data.movesRemaining !== undefined) setMovesRemaining(data.movesRemaining);
           if (data.unoTurnColor !== undefined) setUnoTurnColor(data.unoTurnColor);
-          if (Array.isArray(data.deck)) setDeck(data.deck);
+          if (data.deck !== undefined) setDeck(data.deck);
           if (data.gameOverMsg !== undefined) setGameOverMsg(data.gameOverMsg);
           if (data.toast) showToast(data.toast);
         } catch (e) {
@@ -376,18 +367,8 @@ export default function App() {
       }
     });
 
-    connection.on('error', (err) => {
-      console.error('[P2P] DataConnection 오류:', err);
-      setOpponentConnected(false);
-      showToast("상대방과의 데이터 연결에 문제가 생겼습니다.", "error");
-    });
-
     connection.on('close', () => {
       setOpponentConnected(false);
-      if (connRef.current === connection) {
-        connRef.current = null;
-        setConn(null);
-      }
       showToast("상대방과의 연결이 끊어졌습니다.", "error");
     });
   };
@@ -614,17 +595,13 @@ export default function App() {
       return;
     }
 
-    const currentFen = stateRef.current.fen;
-    const currentTurnColor = stateRef.current.unoTurnColor;
-    const currentDeckState = stateRef.current.deck;
-
-    const currentGame = new Chess(currentFen);
-    if (currentGame.turn() !== currentTurnColor) {
+    const currentGame = new Chess(fen);
+    if (currentGame.turn() !== unoTurnColor) {
       showToast("현재 턴인 플레이어만 카드를 뽑을 수 있습니다!", "error");
       return;
     }
 
-    let currentDeck = Array.isArray(currentDeckState) ? [...currentDeckState] : [];
+    let currentDeck = [...deck];
     if (currentDeck.length === 0) currentDeck = generateDeck();
 
     const card = currentDeck.pop();
@@ -648,20 +625,49 @@ export default function App() {
         movesRemaining: 0
       });
       showToast("스킵! 턴이 넘어갑니다.");
-      setTimeout(() => endTurn(currentFen), 1200);
+      setTimeout(() => endTurn(fen), 1200);
     }
     else if (card.type === 'reverse') {
+      // 2인 게임에서 리버스는 상대와 진영을 맞바꾸고 턴을 상대에게 넘깁니다.
+      // 중요: endTurn()을 호출하면 체스 FEN의 턴 색까지 한 번 더 뒤집혀서
+      // 진영 교체 후 턴이 꼬이므로, 현재 FEN의 active color는 그대로 유지합니다.
       const newOrient = boardOrientation === 'white' ? 'black' : 'white';
+      const newColor = myColor === 'w' ? 'b' : 'w';
+
       setBoardOrientation(newOrient);
+      setMyColor(newColor);
       setMovesRemaining(0);
+
       syncState({
         activeCard: card,
         deck: currentDeck,
-        movesRemaining: 0
+        movesRemaining: 0,
+        unoTurnColor,
+        boardOrientation: newOrient
       });
-      sendMessage({ type: 'REVERSE' });
-      showToast("리버스! 체스판 시점이 180도 뒤집힙니다!", "info");
-      setTimeout(() => endTurn(currentFen), 1200);
+
+      sendMessage({
+        type: 'REVERSE',
+        playerColor: newColor,
+        unoTurnColor,
+        boardOrientation: newOrient,
+        fen
+      });
+
+      showToast("리버스! 나와 상대의 진영과 시점이 180도 뒤집혔습니다!", "info");
+
+      // 현재 턴 색은 유지합니다. 색의 주인이 서로 바뀌었기 때문에
+      // 결과적으로 턴은 상대방에게 넘어갑니다.
+      setTimeout(() => {
+        setActiveCard(null);
+        setMovesRemaining(0);
+        syncState({
+          activeCard: null,
+          movesRemaining: 0,
+          unoTurnColor,
+          boardOrientation: newOrient
+        });
+      }, 1200);
     }
     else if (card.type === 'draw') {
       syncState({
@@ -669,7 +675,7 @@ export default function App() {
         deck: currentDeck,
         movesRemaining: 0
       });
-      handleRevive(card.value, currentFen);
+      handleRevive(card.value, fen);
     }
     else if (card.type === 'wild') {
       syncState({
@@ -677,7 +683,7 @@ export default function App() {
         deck: currentDeck,
         movesRemaining: 0
       });
-      handleWildCard(currentFen);
+      handleWildCard(fen);
     }
   }, [deck, gameOverMsg, activeCard, fen, unoTurnColor, myColor, mode, boardOrientation, endTurn, handleRevive, handleWildCard, showToast, syncState, sendMessage]);
 
@@ -705,19 +711,24 @@ export default function App() {
     }
 
     const targetPiece = currentGame.get(targetSquare);
+    if (targetPiece && targetPiece.type === 'k' && targetPiece.color !== unoTurnColor) {
+      try {
+        const legalMoves = currentGame.moves({ square: sourceSquare, verbose: true });
+        const canCaptureKing = legalMoves.some(move => move.to === targetSquare);
+
+        if (!canCaptureKing) return false;
+
+        const winnerMsg = "킹을 잡았습니다! 승리!";
+        const loserMsg = "킹을 잡혔습니다! 패배!";
+        setGameOverMsg(winnerMsg);
+        syncState({ gameOverMsg: winnerMsg, toast: loserMsg });
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
 
     try {
-      const legalMoves = currentGame.moves({ square: sourceSquare, verbose: true });
-      const selectedMove = legalMoves.find(move => move.to === targetSquare);
-      if (!selectedMove) return false;
-
-      if (targetPiece && targetPiece.type === 'k' && targetPiece.color !== unoTurnColor) {
-        const winnerMsg = "킹을 잡았습니다! 승리!";
-        setGameOverMsg(winnerMsg);
-        syncState({ gameOverMsg: winnerMsg, toast: "상대방의 킹을 잡았습니다!" });
-        return true;
-      }
-
       const move = currentGame.move({
         from: sourceSquare,
         to: targetSquare,
@@ -749,12 +760,16 @@ export default function App() {
   useEffect(() => {
     if (mode !== 'ai' || gameOverMsg) return;
 
-    if (unoTurnColor === 'b' && !isTransitioning.current) {
+    // AI는 항상 'myColor의 반대편' 진영을 조종합니다.
+    // 리버스로 진영이 바뀌면 AI도 자동으로 백/흑이 바뀝니다.
+    const aiColor = myColor === 'w' ? 'b' : 'w';
+
+    if (unoTurnColor === aiColor && !isTransitioning.current) {
       isTransitioning.current = true;
       
       if (!activeCard) {
         setTimeout(() => {
-          let currentDeck = Array.isArray(stateRef.current.deck) ? [...stateRef.current.deck] : [];
+          let currentDeck = [...deck];
           if (currentDeck.length === 0) currentDeck = generateDeck();
           const card = currentDeck.pop();
           setDeck(currentDeck);
@@ -765,30 +780,41 @@ export default function App() {
             isTransitioning.current = false; 
           } else if (card.type === 'skip') {
             showToast(`AI 카드: Skip`);
-            setTimeout(() => { endTurn(stateRef.current.fen); isTransitioning.current = false; }, 1500);
+            setTimeout(() => { endTurn(fen); isTransitioning.current = false; }, 1500);
           } else if (card.type === 'reverse') {
             showToast(`AI 카드: Reverse`);
             const newOrient = boardOrientation === 'white' ? 'black' : 'white';
+            const newPlayerColor = myColor === 'w' ? 'b' : 'w';
+
             setBoardOrientation(newOrient);
-            setTimeout(() => { endTurn(stateRef.current.fen); isTransitioning.current = false; }, 1500);
+            setMyColor(newPlayerColor);
+            setMovesRemaining(0);
+
+            // FEN의 active color는 그대로 유지합니다.
+            // 진영의 주인이 바뀌었으므로 같은 색의 턴이 상대에게 넘어갑니다.
+            setTimeout(() => {
+              setActiveCard(null);
+              setMovesRemaining(0);
+              isTransitioning.current = false;
+            }, 1500);
           } else if (card.type === 'draw') {
             showToast(`AI 카드: Draw ${card.value}+`);
-            handleRevive(card.value, stateRef.current.fen);
+            handleRevive(card.value, fen);
             isTransitioning.current = false;
           } else if (card.type === 'wild') {
             showToast(`AI 카드: Wild`);
-            handleWildCard(stateRef.current.fen);
+            handleWildCard(fen);
             isTransitioning.current = false;
           }
         }, 1000);
       }
       else if (activeCard && movesRemaining > 0) {
         setTimeout(() => {
-          const currentGame = new Chess(stateRef.current.fen);
+          const currentGame = new Chess(fen);
           const possibleMoves = currentGame.moves({ verbose: true });
-          const blackMoves = possibleMoves.filter(m => currentGame.get(m.from)?.color === 'b');
-          if (blackMoves.length > 0) {
-            const move = blackMoves[Math.floor(Math.random() * blackMoves.length)];
+          const aiMoves = possibleMoves.filter(m => currentGame.get(m.from)?.color === aiColor);
+          if (aiMoves.length > 0) {
+            const move = aiMoves[Math.floor(Math.random() * aiMoves.length)];
             currentGame.move(move);
             const newFen = currentGame.fen();
             setGame(currentGame);
@@ -796,20 +822,39 @@ export default function App() {
             setFenHistory(prev => [...prev, newFen]);
             
             if (movesRemaining - 1 > 0) {
-               setMovesRemaining(movesRemaining - 1);
-               isTransitioning.current = false;
+              // chess.js는 말을 한 번 움직이면 자동으로 active color를 반대편으로 바꿉니다.
+              // UNO의 연속 이동 규칙에서는 같은 색이 계속 움직여야 하므로
+              // FEN의 active color를 AI 진영으로 되돌립니다.
+              const remaining = movesRemaining - 1;
+              const parts = newFen.split(' ');
+              parts[1] = aiColor;
+              parts[3] = '-';
+              const continueFen = parts.join(' ');
+
+              try {
+                const continueGame = new Chess();
+                continueGame.load(continueFen);
+                setGame(continueGame);
+                setFen(continueFen);
+                setMovesRemaining(remaining);
+                setFenHistory(prev => [...prev, continueFen]);
+              } catch (e) {
+                console.error('[AI] 연속 이동 FEN 처리 오류:', e);
+                endTurn(newFen);
+              }
+              isTransitioning.current = false;
             } else {
-               endTurn(newFen);
-               isTransitioning.current = false;
+              endTurn(newFen);
+              isTransitioning.current = false;
             }
           } else {
-             endTurn(stateRef.current.fen);
+             endTurn(fen);
              isTransitioning.current = false;
           }
         }, 1200);
       }
     }
-  }, [unoTurnColor, activeCard, movesRemaining, mode, gameOverMsg, deck, fen, endTurn, handleRevive, handleWildCard, showToast, boardOrientation]);
+  }, [unoTurnColor, activeCard, movesRemaining, mode, gameOverMsg, deck, fen, endTurn, handleRevive, handleWildCard, showToast, boardOrientation, myColor]);
 
   const resetGame = () => {
     const newGame = new Chess();
@@ -846,13 +891,6 @@ export default function App() {
     if (currentGame.isCheck()) return `체크! ${turnName} 턴`;
     return `${turnName} 턴`;
   };
-
-  useEffect(() => {
-    return () => {
-      try { connRef.current?.close(); } catch (e) {}
-      try { peerRef.current?.destroy(); } catch (e) {}
-    };
-  }, []);
 
   if (mode === 'menu') {
     return (
